@@ -19,45 +19,71 @@ const Login = () => {
     password: "",
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+ const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-    if (formData.email && formData.password) {
-      try {
-        const response = await fetch(
-          "https://staging.api.infigon.app/v1/teams/auth/login",
-          {
-            method: "POST",
-            headers: {
-              Accept: "*/*",
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              email: formData.email,
-              password: formData.password,
-            }),
-          }
-        );
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          console.error("Login failed:", data);
-          alert(`Login failed: ${data.message || response.statusText}`);
-          return;
+  if (formData.email && formData.password) {
+    try {
+      const response = await fetch(
+        "https://staging.api.infigon.app/v1/teams/auth/login",
+        {
+          method: "POST",
+          headers: {
+            Accept: "*/*",
+            "Content-Type": "application/json",
+          },
+          credentials: "include", 
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+          }),
         }
+      );
 
-        console.log("Login successful:", data);
-        alert("Login successful!");
-        router.push("/createBlog");
-      } catch (error) {
-        console.error("Error during login:", error);
-        alert("An error occurred during login. Please try again.");
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error("Login failed:", data);
+        alert(`Login failed: ${data.message || response.statusText}`);
+        return;
       }
-    } else {
-      alert("Please fill in both email and password.");
+
+      console.log("Login successful:", data);
+      alert("Login successful!");
+      router.push("/createBlog");
+    } catch (error) {
+      console.error("Error during login:", error);
+      alert("An error occurred during login. Please try again.");
     }
+  } else {
+    alert("Please fill in both email and password.");
+  }
+};
+
+  const checkLoginStatus = (): boolean => {
+    const authCookie = document.cookie
+      .split("; ")
+      .find((row) => row.startsWith("auth_token=")); // Replace 'auth_token' with your cookie name
+    if (authCookie) {
+      console.log("Auth cookie found:", authCookie);
+      return true;
+    }
+
+    // Example: Check for a token in localStorage or sessionStorage
+    const token =
+      localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+    if (token) {
+      console.log(
+        "Auth token found in storage:",
+        token.substring(0, 10) + "..."
+      ); // Log partial token for security
+      return true;
+    }
+
+    console.log("No auth cookie or token found");
+    return false;
   };
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center p-4">
