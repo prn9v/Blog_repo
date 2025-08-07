@@ -139,7 +139,6 @@ const CreateBlog = () => {
     formDataUpload.append("file", file);
     formDataUpload.append("folderName", `/blog/${slug}`);
 
-    console.log("formDataUpload entries:", [...formDataUpload.entries()]);
 
     try {
       const response = await fetch(
@@ -148,17 +147,12 @@ const CreateBlog = () => {
           method: "POST",
           headers: {
             Accept: "*/*",
-            // Add Authorization header if using a token, e.g.:
-            // 'Authorization': `Bearer ${getAuthToken()}`,
           },
-          credentials: "include", // Sends cookies if user is logged in
+          credentials: "include", 
           body: formDataUpload,
         }
       );
 
-      console.log("Response status:", response.status, "Headers:", [
-        ...response.headers.entries(),
-      ]);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -169,7 +163,6 @@ const CreateBlog = () => {
       }
 
       const result = await response.json();
-      console.log("Result:", result);
       return result.fileUrl;
     } catch (error) {
       console.error("Error uploading file:", error);
@@ -210,7 +203,6 @@ const CreateBlog = () => {
     isConclusion: boolean = false
   ) => {
     const files = e.target.files;
-    console.log("files: ", files);
     if (!files || !formData.slug) {
       alert(
         "Please select a file and ensure a title is provided to generate a slug."
@@ -659,8 +651,6 @@ const CreateBlog = () => {
         seoDescription: formData.seoDescription,
       };
 
-      console.log("blog post: ", blogPostJSON);
-
       const response = await fetch(
         "https://staging.api.infigon.app/v1/teams/blogs",
         {
@@ -673,8 +663,6 @@ const CreateBlog = () => {
         }
       );
 
-      console.log("response: ", response);
-
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(
@@ -683,7 +671,6 @@ const CreateBlog = () => {
       }
 
       const result = await response.json();
-      console.log("Blog post created successfully:", result);
 
       router.push("/");
     } catch (error) {

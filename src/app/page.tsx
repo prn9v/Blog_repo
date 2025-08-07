@@ -48,7 +48,6 @@ const Login = () => {
         return;
       }
 
-      console.log("Login successful:", data);
       alert("Login successful!");
       router.push("/createBlog");
     } catch (error) {
@@ -60,29 +59,6 @@ const Login = () => {
   }
 };
 
-  const checkLoginStatus = (): boolean => {
-    const authCookie = document.cookie
-      .split("; ")
-      .find((row) => row.startsWith("auth_token=")); // Replace 'auth_token' with your cookie name
-    if (authCookie) {
-      console.log("Auth cookie found:", authCookie);
-      return true;
-    }
-
-    // Example: Check for a token in localStorage or sessionStorage
-    const token =
-      localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
-    if (token) {
-      console.log(
-        "Auth token found in storage:",
-        token.substring(0, 10) + "..."
-      ); // Log partial token for security
-      return true;
-    }
-
-    console.log("No auth cookie or token found");
-    return false;
-  };
 
 
   return (
