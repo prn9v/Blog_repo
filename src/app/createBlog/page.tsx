@@ -55,7 +55,6 @@ interface BlogPost {
   coverImage?: File;
   coverImageUrl: string;
   coverImageAlt: string;
-  BlogType: string;
   sourceUrl: string;
   author: string;
   keywords: string[];
@@ -97,7 +96,6 @@ const CreateBlog = () => {
     excerpt: "",
     coverImageUrl: "",
     coverImageAlt: "",
-    BlogType: "",
     sourceUrl: "",
     author: "",
     keywords: [],
@@ -134,11 +132,9 @@ const CreateBlog = () => {
       throw new Error("File and slug are required");
     }
 
-
     const formDataUpload = new FormData();
     formDataUpload.append("file", file);
     formDataUpload.append("folderName", `/blog/${slug}`);
-
 
     try {
       const response = await fetch(
@@ -152,7 +148,6 @@ const CreateBlog = () => {
           body: formDataUpload,
         }
       );
-
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -170,122 +165,121 @@ const CreateBlog = () => {
     }
   };
 
-
   const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB in bytes
 
-const validateFileSize = (file: File): boolean => {
-  if (file.size > MAX_FILE_SIZE) {
-    alert(`File "${file.name}" exceeds the maximum size limit of 5MB. Please choose a smaller file.`);
-    return false;
-  }
-  return true;
-};
+  const validateFileSize = (file: File): boolean => {
+    if (file.size > MAX_FILE_SIZE) {
+      alert(`File "${file.name}" exceeds the maximum size limit of 5MB. Please choose a smaller file.`);
+      return false;
+    }
+    return true;
+  };
 
-const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-  const file = e.target.files?.[0];
-  if (!file || !formData.slug) {
-    alert(
-      "Please select a file and ensure a title is provided to generate a slug."
-    );
-    return;
-  }
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !formData.slug) {
+      alert(
+        "Please select a file and ensure a title is provided to generate a slug."
+      );
+      return;
+    }
 
-  // Validate file size
-  if (!validateFileSize(file)) {
-    return;
-  }
-
-  setIsUploading(true);
-  try {
-    const uploadedUrl = await uploadFileToAPI(file, formData.slug);
-    setFormData((prev) => ({
-      ...prev,
-      coverImage: file,
-      coverImageUrl: uploadedUrl,
-      imageUrls: [...prev.imageUrls, uploadedUrl],
-    }));
-  } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "An unexpected error occurred";
-    alert(`Error uploading cover image: ${errorMessage}`);
-  } finally {
-    setIsUploading(false);
-  }
-};
-
-const handleContentImageUpload = async (
-  e: React.ChangeEvent<HTMLInputElement>,
-  isConclusion: boolean = false
-) => {
-  const files = e.target.files;
-  if (!files || !formData.slug) {
-    alert(
-      "Please select a file and ensure a title is provided to generate a slug."
-    );
-    return;
-  }
-
-  const newFiles = Array.from(files);
-  
-  // Validate all files before proceeding
-  for (const file of newFiles) {
+    // Validate file size
     if (!validateFileSize(file)) {
       return;
     }
-  }
 
-  setIsUploading(true);
-  try {
-    const uploadedUrls: string[] = [];
-
-    for (const file of newFiles) {
+    setIsUploading(true);
+    try {
       const uploadedUrl = await uploadFileToAPI(file, formData.slug);
-      uploadedUrls.push(uploadedUrl);
       setFormData((prev) => ({
         ...prev,
+        coverImage: file,
+        coverImageUrl: uploadedUrl,
         imageUrls: [...prev.imageUrls, uploadedUrl],
       }));
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "An unexpected error occurred";
+      alert(`Error uploading cover image: ${errorMessage}`);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleContentImageUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    isConclusion: boolean = false
+  ) => {
+    const files = e.target.files;
+    if (!files || !formData.slug) {
+      alert(
+        "Please select a file and ensure a title is provided to generate a slug."
+      );
+      return;
     }
 
-    const imageMarkdown = uploadedUrls
-      .map((url, index) => `![Image ${Date.now() + index}](${url})`)
-      .join("\n\n");
-
-    const editorRef = isConclusion ? conclusionEditorRef : contentEditorRef;
-    const field = isConclusion ? "conclusion" : "content";
-    const currentValue = formData[field] || "";
-
-    if (editorRef.current) {
-      const textarea = editorRef.current;
-      const startPos = textarea.selectionStart || currentValue.length;
-      const endPos = textarea.selectionEnd || currentValue.length;
-      const newValue =
-        currentValue.substring(0, startPos) +
-        (startPos > 0 && currentValue[startPos - 1] !== "\n" ? "\n\n" : "") +
-        imageMarkdown +
-        (currentValue[endPos] !== "\n" ? "\n\n" : "") +
-        currentValue.substring(endPos);
-
-      setFormData((prev) => ({
-        ...prev,
-        [field]: newValue,
-      }));
-    } else {
-      setFormData((prev) => ({
-        ...prev,
-        [field]: currentValue
-          ? `${currentValue}\n\n${imageMarkdown}`
-          : imageMarkdown,
-      }));
+    const newFiles = Array.from(files);
+    
+    // Validate all files before proceeding
+    for (const file of newFiles) {
+      if (!validateFileSize(file)) {
+        return;
+      }
     }
-  } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "An unexpected error occurred";
-    alert(`Error uploading content image: ${errorMessage}`);
-  } finally {
-    setIsUploading(false);
-  }
-};
+
+    setIsUploading(true);
+    try {
+      const uploadedUrls: string[] = [];
+
+      for (const file of newFiles) {
+        const uploadedUrl = await uploadFileToAPI(file, formData.slug);
+        uploadedUrls.push(uploadedUrl);
+        setFormData((prev) => ({
+          ...prev,
+          imageUrls: [...prev.imageUrls, uploadedUrl],
+        }));
+      }
+
+      const imageMarkdown = uploadedUrls
+        .map((url, index) => `![Image ${Date.now() + index}](${url})`)
+        .join("\n\n");
+
+      const editorRef = isConclusion ? conclusionEditorRef : contentEditorRef;
+      const field = isConclusion ? "conclusion" : "content";
+      const currentValue = formData[field] || "";
+
+      if (editorRef.current) {
+        const textarea = editorRef.current;
+        const startPos = textarea.selectionStart || currentValue.length;
+        const endPos = textarea.selectionEnd || currentValue.length;
+        const newValue =
+          currentValue.substring(0, startPos) +
+          (startPos > 0 && currentValue[startPos - 1] !== "\n" ? "\n\n" : "") +
+          imageMarkdown +
+          (currentValue[endPos] !== "\n" ? "\n\n" : "") +
+          currentValue.substring(endPos);
+
+        setFormData((prev) => ({
+          ...prev,
+          [field]: newValue,
+        }));
+      } else {
+        setFormData((prev) => ({
+          ...prev,
+          [field]: currentValue
+            ? `${currentValue}\n\n${imageMarkdown}`
+            : imageMarkdown,
+        }));
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "An unexpected error occurred";
+      alert(`Error uploading content image: ${errorMessage}`);
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const parseFormattedText = (text: string): FormattedText[] => {
     const parts: FormattedText[] = [];
@@ -635,11 +629,10 @@ const handleContentImageUpload = async (
       !formData.title ||
       !formData.content ||
       !formData.author ||
-      !formData.coverImageAlt ||
-      !formData.BlogType
+      !formData.coverImageAlt
     ) {
       alert(
-        "Please fill in all required fields (Title, Content, Author, Cover Image Alt, and Blog Type)."
+        "Please fill in all required fields (Title, Content, Author, and Cover Image Alt)."
       );
       return;
     }
@@ -665,7 +658,7 @@ const handleContentImageUpload = async (
         readTime: estimatedReadTime,
         excerpt: formData.excerpt,
         coverImageUrl: formData.coverImageUrl,
-        BlogType: formData.BlogType,
+        BlogType: "INFIGON", // Set to INFIGON as requested
         sourceUrl: formData.sourceUrl,
         keywords: formData.keywords,
         tags: formData.tags,
@@ -744,7 +737,7 @@ const handleContentImageUpload = async (
             <CardHeader>
               <CardTitle>Basic Info</CardTitle>
               <CardDescription>
-                Title, author, excerpt, and blog type
+                Title, author, excerpt, and source information
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -778,18 +771,6 @@ const handleContentImageUpload = async (
                   />
                 </div>
                 <div>
-                  <Label>Blog Type *</Label>
-                  <Input
-                    value={formData.BlogType}
-                    onChange={(e) =>
-                      setFormData((p) => ({ ...p, BlogType: e.target.value }))
-                    }
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
                   <Label>Source URL</Label>
                   <Input
                     value={formData.sourceUrl}
@@ -798,18 +779,19 @@ const handleContentImageUpload = async (
                     }
                   />
                 </div>
-                <div>
-                  <Label>Read Time (min)</Label>
-                  <Input
-                    type="number"
-                    value={formData.readTime}
-                    min="1"
-                    max="1440"
-                    onChange={(e) =>
-                      setFormData((p) => ({ ...p, readTime: +e.target.value }))
-                    }
-                  />
-                </div>
+              </div>
+
+              <div>
+                <Label>Read Time (min)</Label>
+                <Input
+                  type="number"
+                  value={formData.readTime}
+                  min="1"
+                  max="1440"
+                  onChange={(e) =>
+                    setFormData((p) => ({ ...p, readTime: +e.target.value }))
+                  }
+                />
               </div>
 
               <div>
