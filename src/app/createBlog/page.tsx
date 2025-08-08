@@ -171,98 +171,121 @@ const CreateBlog = () => {
   };
 
 
-  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !formData.slug) {
-      alert(
-        "Please select a file and ensure a title is provided to generate a slug."
-      );
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB in bytes
+
+const validateFileSize = (file: File): boolean => {
+  if (file.size > MAX_FILE_SIZE) {
+    alert(`File "${file.name}" exceeds the maximum size limit of 5MB. Please choose a smaller file.`);
+    return false;
+  }
+  return true;
+};
+
+const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file || !formData.slug) {
+    alert(
+      "Please select a file and ensure a title is provided to generate a slug."
+    );
+    return;
+  }
+
+  // Validate file size
+  if (!validateFileSize(file)) {
+    return;
+  }
+
+  setIsUploading(true);
+  try {
+    const uploadedUrl = await uploadFileToAPI(file, formData.slug);
+    setFormData((prev) => ({
+      ...prev,
+      coverImage: file,
+      coverImageUrl: uploadedUrl,
+      imageUrls: [...prev.imageUrls, uploadedUrl],
+    }));
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "An unexpected error occurred";
+    alert(`Error uploading cover image: ${errorMessage}`);
+  } finally {
+    setIsUploading(false);
+  }
+};
+
+const handleContentImageUpload = async (
+  e: React.ChangeEvent<HTMLInputElement>,
+  isConclusion: boolean = false
+) => {
+  const files = e.target.files;
+  if (!files || !formData.slug) {
+    alert(
+      "Please select a file and ensure a title is provided to generate a slug."
+    );
+    return;
+  }
+
+  const newFiles = Array.from(files);
+  
+  // Validate all files before proceeding
+  for (const file of newFiles) {
+    if (!validateFileSize(file)) {
       return;
     }
+  }
 
-    setIsUploading(true);
-    try {
+  setIsUploading(true);
+  try {
+    const uploadedUrls: string[] = [];
+
+    for (const file of newFiles) {
       const uploadedUrl = await uploadFileToAPI(file, formData.slug);
+      uploadedUrls.push(uploadedUrl);
       setFormData((prev) => ({
         ...prev,
-        coverImage: file,
-        coverImageUrl: uploadedUrl,
         imageUrls: [...prev.imageUrls, uploadedUrl],
       }));
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "An unexpected error occurred";
-      alert(`Error uploading cover image: ${errorMessage}`);
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleContentImageUpload = async (
-    e: React.ChangeEvent<HTMLInputElement>,
-    isConclusion: boolean = false
-  ) => {
-    const files = e.target.files;
-    if (!files || !formData.slug) {
-      alert(
-        "Please select a file and ensure a title is provided to generate a slug."
-      );
-      return;
     }
 
-    setIsUploading(true);
-    try {
-      const uploadedUrls: string[] = [];
-      const newFiles = Array.from(files);
+    const imageMarkdown = uploadedUrls
+      .map((url, index) => `![Image ${Date.now() + index}](${url})`)
+      .join("\n\n");
 
-      for (const file of newFiles) {
-        const uploadedUrl = await uploadFileToAPI(file, formData.slug);
-        uploadedUrls.push(uploadedUrl);
-        setFormData((prev) => ({
-          ...prev,
-          imageUrls: [...prev.imageUrls, uploadedUrl],
-        }));
-      }
+    const editorRef = isConclusion ? conclusionEditorRef : contentEditorRef;
+    const field = isConclusion ? "conclusion" : "content";
+    const currentValue = formData[field] || "";
 
-      const imageMarkdown = uploadedUrls
-        .map((url, index) => `![Image ${Date.now() + index}](${url})`)
-        .join("\n\n");
+    if (editorRef.current) {
+      const textarea = editorRef.current;
+      const startPos = textarea.selectionStart || currentValue.length;
+      const endPos = textarea.selectionEnd || currentValue.length;
+      const newValue =
+        currentValue.substring(0, startPos) +
+        (startPos > 0 && currentValue[startPos - 1] !== "\n" ? "\n\n" : "") +
+        imageMarkdown +
+        (currentValue[endPos] !== "\n" ? "\n\n" : "") +
+        currentValue.substring(endPos);
 
-      const editorRef = isConclusion ? conclusionEditorRef : contentEditorRef;
-      const field = isConclusion ? "conclusion" : "content";
-      const currentValue = formData[field] || "";
-
-      if (editorRef.current) {
-        const textarea = editorRef.current;
-        const startPos = textarea.selectionStart || currentValue.length;
-        const endPos = textarea.selectionEnd || currentValue.length;
-        const newValue =
-          currentValue.substring(0, startPos) +
-          (startPos > 0 && currentValue[startPos - 1] !== "\n" ? "\n\n" : "") +
-          imageMarkdown +
-          (currentValue[endPos] !== "\n" ? "\n\n" : "") +
-          currentValue.substring(endPos);
-
-        setFormData((prev) => ({
-          ...prev,
-          [field]: newValue,
-        }));
-      } else {
-        setFormData((prev) => ({
-          ...prev,
-          [field]: currentValue
-            ? `${currentValue}\n\n${imageMarkdown}`
-            : imageMarkdown,
-        }));
-      }
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "An unexpected error occurred";
-      alert(`Error uploading content image: ${errorMessage}`);
-    } finally {
-      setIsUploading(false);
+      setFormData((prev) => ({
+        ...prev,
+        [field]: newValue,
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        [field]: currentValue
+          ? `${currentValue}\n\n${imageMarkdown}`
+          : imageMarkdown,
+      }));
     }
-  };
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "An unexpected error occurred";
+    alert(`Error uploading content image: ${errorMessage}`);
+  } finally {
+    setIsUploading(false);
+  }
+};
 
   const parseFormattedText = (text: string): FormattedText[] => {
     const parts: FormattedText[] = [];
