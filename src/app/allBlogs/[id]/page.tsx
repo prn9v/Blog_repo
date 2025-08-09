@@ -53,7 +53,7 @@ const renderContent = (items: ContentItem[]) => {
       case "text":
         return (
           <p key={index} className="mb-4">
-            {item.formattedContent?.length ? (
+            {item.formattedContent && item.formattedContent.length > 0 ? (
               item.formattedContent.map((segment, i) => (
                 <span
                   key={i}
@@ -69,7 +69,7 @@ const renderContent = (items: ContentItem[]) => {
         );
       case "heading":
         const level = item.level || 1;
-        const content = item.formattedContent?.length ? (
+        const content = item.formattedContent && item.formattedContent.length > 0 ? (
           item.formattedContent.map((segment, i) => (
             <span
               key={i}
@@ -143,6 +143,8 @@ const SingleBlog = () => {
       fetchBlog();
     }
   }, [params.id]);
+
+  console.log("blog: ",blog);
 
   if (loading) {
     return (

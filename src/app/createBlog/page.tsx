@@ -144,7 +144,7 @@ const CreateBlog = () => {
           headers: {
             Accept: "*/*",
           },
-          credentials: "include", 
+          credentials: "include",
           body: formDataUpload,
         }
       );
@@ -169,7 +169,9 @@ const CreateBlog = () => {
 
   const validateFileSize = (file: File): boolean => {
     if (file.size > MAX_FILE_SIZE) {
-      alert(`File "${file.name}" exceeds the maximum size limit of 5MB. Please choose a smaller file.`);
+      alert(
+        `File "${file.name}" exceeds the maximum size limit of 5MB. Please choose a smaller file.`
+      );
       return false;
     }
     return true;
@@ -220,7 +222,7 @@ const CreateBlog = () => {
     }
 
     const newFiles = Array.from(files);
-    
+
     // Validate all files before proceeding
     for (const file of newFiles) {
       if (!validateFileSize(file)) {
@@ -285,12 +287,19 @@ const CreateBlog = () => {
     const parts: FormattedText[] = [];
     let currentIndex = 0;
 
-    const patterns = [
-      { regex: /\*\*([^*]+)\*\*/g, type: "bold" },
-      { regex: /\*([^*]+)\*/g, type: "italic" },
-      { regex: /`([^`]+)`/g, type: "code" },
-      { regex: /\[([^\]]+)\]\(([^)]+)\)/g, type: "link" },
-    ];
+    
+const patterns = [
+  // Bold and italic combined (***text***) - exactly 3 stars at start and end
+  { regex: /(?<!\*)\*{3}([^*]+)\*{3}(?!\*)/g, type: "bold-italic" },
+  // Bold only (**text**) - exactly 2 stars at start and end
+  { regex: /(?<!\*)\*{2}([^*]+)\*{2}(?!\*)/g, type: "bold" },
+  // Italic only (*text*) - exactly 1 star at start and end
+  { regex: /(?<!\*)\*{1}([^*]+)\*{1}(?!\*)/g, type: "italic" },
+  // Code (`text`)
+  { regex: /`([^`]+)`/g, type: "code" },
+  // Links ([text](url))
+  { regex: /\[([^\]]+)\]\(([^)]+)\)/g, type: "link" },
+];
 
     const matches: Array<{
       index: number;
@@ -698,7 +707,7 @@ const CreateBlog = () => {
       setIsUploading(false);
     }
   };
-
+  
   return (
     <div className="min-h-screen bg-muted/20 py-10">
       <div className="container max-w-4xl mx-auto px-4 space-y-6">
