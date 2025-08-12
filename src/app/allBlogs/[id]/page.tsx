@@ -131,7 +131,9 @@ const renderContent = (items: ContentItem[], tocItems: TocItem[]) => {
         const isRemote = isValidUrl(item.src);
         if (isBase64 || !isRemote) {
           return (
-            <img
+            <Image
+              height={300}
+              width={300}
               key={index}
               src={item.src}
               alt={item.alt || ""}
@@ -303,9 +305,11 @@ const SingleBlog = () => {
                 className="w-full h-full object-cover"
               />
             ) : (
-              <img
+              <Image
                 src="/placeholder.png"
                 alt="Fallback cover"
+                height={400}
+                width={800}
                 className="w-full h-full object-cover"
               />
             )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,14 +49,13 @@ interface BlogPost {
   title: string;
   slug: string;
   content: string;
-  conclusion?: string;
+  conclusion: string;
   readTime: number;
   excerpt: string;
   coverImage?: File;
   coverImageUrl: string;
   coverImageAlt: string;
   sourceUrl: string;
-  author: string;
   keywords: string[];
   seoTitle: string;
   seoDescription: string;
@@ -97,7 +96,6 @@ const CreateBlog = () => {
     coverImageUrl: "",
     coverImageAlt: "",
     sourceUrl: "",
-    author: "",
     keywords: [],
     seoTitle: "",
     seoDescription: "",
@@ -107,6 +105,190 @@ const CreateBlog = () => {
 
   const [newKeyword, setNewKeyword] = useState("");
   const [newTag, setNewTag] = useState("");
+
+  const htmlToMarkdown = useCallback((html: string): string => {
+    // Create a temporary div to parse HTML
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+
+    let liCounter = 1; // Global counter for all li elements
+
+    // Function to process nodes recursively
+    const processNode = (node: Node): string => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        return node.textContent || '';
+      }
+
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const element = node as Element;
+        const tagName = element.tagName.toLowerCase();
+        const children = Array.from(element.childNodes).map(processNode).join('');
+
+        switch (tagName) {
+          case 'h1': return `# ${children}\n\n`;
+          case 'h2': return `## ${children}\n\n`;
+          case 'h3': return `### ${children}\n\n`;
+          case 'h4': return `#### ${children}\n\n`;
+          case 'h5': return `##### ${children}\n\n`;
+          case 'h6': return `###### ${children}\n\n`;
+          case 'p': return `${children}\n\n`;
+          case 'br': return '\n';
+          case 'b': 
+          case 'strong': return `**${children}**`;
+          case 'i': 
+          case 'em': return `*${children}*`;
+          case 'code': return `\`${children}\``;
+          case 'pre': return `\`\`\`\n${children}\n\`\`\`\n\n`;
+          case 'blockquote': return `> ${children}\n\n`;
+          case 'ul':
+          case 'ol':
+            // Just return children without any wrapper formatting
+            return children;
+          case 'li': 
+            const listItem = `${liCounter}. ${children.replace(/\n\n$/, '')}\n`;
+            liCounter++;
+            return listItem;
+          case 'a':
+            const href = element.getAttribute('href');
+            return href ? `[${children}](${href})` : children;
+          case 'img':
+            const src = element.getAttribute('src');
+            const alt = element.getAttribute('alt') || '';
+            return src ? `![${alt}](${src})` : '';
+          case 'table':
+            // Basic table support
+            const rows = Array.from(element.querySelectorAll('tr'));
+            if (rows.length === 0) return children;
+                      
+            let tableMarkdown = '';
+            rows.forEach((row, rowIndex) => {
+              const cells = Array.from(row.querySelectorAll('td, th'));
+              const cellContents = cells.map(cell => processNode(cell).trim());
+              tableMarkdown += `| ${cellContents.join(' | ')} |\n`;
+                          
+              // Add separator after header row
+              if (rowIndex === 0 && cells.length > 0) {
+                tableMarkdown += `| ${cells.map(() => '---').join(' | ')} |\n`;
+              }
+            });
+            return tableMarkdown + '\n';
+          case 'div':
+          case 'span':
+            // Check for specific styling
+            const style = element.getAttribute('style') || '';
+            if (style.includes('font-weight: bold') || style.includes('font-weight:bold')) {
+              return `**${children}**`;
+            }
+            if (style.includes('font-style: italic') || style.includes('font-style:italic')) {
+              return `*${children}*`;
+            }
+            return children;
+          default:
+            return children;
+        }
+      }
+
+      return '';
+    };
+
+    return processNode(tempDiv).trim();
+  }, []);
+
+  // Enhanced paste handler for markdown editors
+  const handlePaste = useCallback((event: ClipboardEvent, field: 'content' | 'conclusion') => {
+    const clipboardData = event.clipboardData;
+    if (!clipboardData) return;
+
+    // Get HTML content if available
+    const htmlContent = clipboardData.getData('text/html');
+    const plainText = clipboardData.getData('text/plain');
+
+    if (htmlContent && htmlContent.trim() !== '') {
+      event.preventDefault();
+      
+      // Convert HTML to Markdown
+      const markdownContent = htmlToMarkdown(htmlContent);
+      
+      // Get current cursor position
+      const textarea = field === 'content' ? contentEditorRef.current : conclusionEditorRef.current;
+      const currentValue = formData[field] || '';
+      
+      if (textarea) {
+        const startPos = textarea.selectionStart || 0;
+        const endPos = textarea.selectionEnd || 0;
+        
+        // Insert the markdown content at cursor position
+        const newValue = 
+          currentValue.substring(0, startPos) + 
+          markdownContent + 
+          currentValue.substring(endPos);
+        
+        setFormData(prev => ({
+          ...prev,
+          [field]: newValue
+        }));
+      } else {
+        // Fallback: append to end
+        setFormData(prev => ({
+          ...prev,
+          [field]: currentValue ? `${currentValue}\n\n${markdownContent}` : markdownContent
+        }));
+      }
+    }
+  }, [formData, htmlToMarkdown]);
+
+  // Custom MDEditor component with enhanced paste handling
+  const EnhancedMDEditor = ({ 
+    value, 
+    onChange, 
+    height, 
+    field 
+  }: { 
+    value: string; 
+    onChange: (val?: string) => void; 
+    height: number;
+    field: 'content' | 'conclusion';
+  }) => {
+    const editorRef = useRef<HTMLDivElement>(null);
+
+    const handleEditorPaste = useCallback((e: unknown) => {
+      const clipboardEvent = e as ClipboardEvent;
+      handlePaste(clipboardEvent, field);
+    }, [field]);
+
+    // Effect to assign the ref after component mounts
+    useEffect(() => {
+      if (editorRef.current) {
+        const textarea = editorRef.current.querySelector('textarea');
+        if (textarea) {
+          if (field === 'content') {
+            contentEditorRef.current = textarea;
+          } else {
+            conclusionEditorRef.current = textarea;
+          }
+        }
+      }
+    }, [field]);
+
+    return (
+      <div ref={editorRef} onPaste={handleEditorPaste}>
+        <MDEditor
+          value={value}
+          onChange={onChange}
+          height={height}
+          data-color-mode="light"
+          textareaProps={{
+            placeholder: `Enter your ${field} here... You can paste formatted content and it will be converted to Markdown automatically.`,
+            style: {
+              fontSize: '14px',
+              lineHeight: '1.6',
+              fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
+            }
+          }}
+        />
+      </div>
+    );
+  };
 
   const generateSlug = (title: string) => {
     return title
@@ -287,19 +469,18 @@ const CreateBlog = () => {
     const parts: FormattedText[] = [];
     let currentIndex = 0;
 
-    
-const patterns = [
-  // Bold and italic combined (***text***) - exactly 3 stars at start and end
-  { regex: /(?<!\*)\*{3}([^*]+)\*{3}(?!\*)/g, type: "bold-italic" },
-  // Bold only (**text**) - exactly 2 stars at start and end
-  { regex: /(?<!\*)\*{2}([^*]+)\*{2}(?!\*)/g, type: "bold" },
-  // Italic only (*text*) - exactly 1 star at start and end
-  { regex: /(?<!\*)\*{1}([^*]+)\*{1}(?!\*)/g, type: "italic" },
-  // Code (`text`)
-  { regex: /`([^`]+)`/g, type: "code" },
-  // Links ([text](url))
-  { regex: /\[([^\]]+)\]\(([^)]+)\)/g, type: "link" },
-];
+    const patterns = [
+      // Bold and italic combined (***text***) - exactly 3 stars at start and end
+      { regex: /(?<!\*)\*{3}([^*]+)\*{3}(?!\*)/g, type: "bold-italic" },
+      // Bold only (**text**) - exactly 2 stars at start and end
+      { regex: /(?<!\*)\*{2}([^*]+)\*{2}(?!\*)/g, type: "bold" },
+      // Italic only (*text*) - exactly 1 star at start and end
+      { regex: /(?<!\*)\*{1}([^*]+)\*{1}(?!\*)/g, type: "italic" },
+      // Code (`text`)
+      { regex: /`([^`]+)`/g, type: "code" },
+      // Links ([text](url))
+      { regex: /\[([^\]]+)\]\(([^)]+)\)/g, type: "link" },
+    ];
 
     const matches: Array<{
       index: number;
@@ -339,6 +520,10 @@ const patterns = [
           formattedPart.bold = true;
           break;
         case "italic":
+          formattedPart.italic = true;
+          break;
+        case "bold-italic":
+          formattedPart.bold = true;
           formattedPart.italic = true;
           break;
         case "code":
@@ -594,54 +779,66 @@ const patterns = [
     return blocks;
   };
 
-  const addKeyword = () => {
+  // Updated keyword handling with comma-separated support
+  const addKeywords = () => {
     const trimmed = newKeyword.trim();
-    if (trimmed && !formData.keywords.includes(trimmed)) {
-      setFormData((prev) => ({
-        ...prev,
-        keywords: [...prev.keywords, trimmed],
-      }));
-      setNewKeyword("");
+    if (trimmed) {
+      // Split by comma and process each keyword
+      const newKeywords = trimmed
+        .split(',')
+        .map(keyword => keyword.trim())
+        .filter(keyword => keyword && !formData.keywords.includes(keyword));
+      
+      if (newKeywords.length > 0) {
+        setFormData((prev) => ({
+          ...prev,
+          keywords: [...prev.keywords, ...newKeywords],
+        }));
+        setNewKeyword("");
+      }
     }
   };
 
-  const removeKeyword = (keyword: string) => {
+  const removeKeyword = (keywordToRemove: string) => {
     setFormData((prev) => ({
       ...prev,
-      keywords: prev.keywords.filter((k) => k !== keyword),
+      keywords: prev.keywords.filter((keyword) => keyword !== keywordToRemove),
     }));
   };
 
-  const addTag = () => {
+  // Updated tag handling with comma-separated support
+  const addTags = () => {
     const trimmed = newTag.trim();
-    if (trimmed && !formData.tags.includes(trimmed)) {
-      setFormData((prev) => ({ ...prev, tags: [...prev.tags, trimmed] }));
-      setNewTag("");
+    if (trimmed) {
+      // Split by comma and process each tag
+      const newTags = trimmed
+        .split(',')
+        .map(tag => tag.trim())
+        .filter(tag => tag && !formData.tags.includes(tag));
+      
+      if (newTags.length > 0) {
+        setFormData((prev) => ({
+          ...prev,
+          tags: [...prev.tags, ...newTags],
+        }));
+        setNewTag("");
+      }
     }
   };
 
-  const removeTag = (tag: string) => {
+  const removeTag = (tagToRemove: string) => {
     setFormData((prev) => ({
       ...prev,
-      tags: prev.tags.filter((t) => t !== tag),
+      tags: prev.tags.filter((tag) => tag !== tagToRemove),
     }));
-  };
-
-  const calculateWordCount = (content: string): number => {
-    return content.split(/\s+/).filter((word) => word.length > 0).length;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (
-      !formData.title ||
-      !formData.content ||
-      !formData.author ||
-      !formData.coverImageAlt
-    ) {
+    if (!formData.title || !formData.content || !formData.coverImageAlt) {
       alert(
-        "Please fill in all required fields (Title, Content, Author, and Cover Image Alt)."
+        "Please fill in all required fields (Title, Content, and Cover Image Alt)."
       );
       return;
     }
@@ -654,21 +851,16 @@ const patterns = [
         ? parseContentToJSON(formData.conclusion)
         : undefined;
 
-      const wordCount = calculateWordCount(
-        formData.content + (formData.conclusion || "")
-      );
-      const estimatedReadTime = Math.ceil(wordCount / 200);
-
       const blogPostJSON: BlogPostJSON = {
         title: formData.title,
         slug: formData.slug,
         content: parsedContent,
         conclusion: parsedConclusion,
-        readTime: estimatedReadTime,
+        readTime: formData.readTime,
         excerpt: formData.excerpt,
         coverImageUrl: formData.coverImageUrl,
         BlogType: "INFIGON", // Set to INFIGON as requested
-        sourceUrl: formData.sourceUrl,
+        sourceUrl: "https://www.infigonfutures.com/blogs",
         keywords: formData.keywords,
         tags: formData.tags,
         imageUrls: formData.imageUrls,
@@ -707,7 +899,7 @@ const patterns = [
       setIsUploading(false);
     }
   };
-  
+
   return (
     <div className="min-h-screen bg-muted/20 py-10">
       <div className="container max-w-4xl mx-auto px-4 space-y-6">
@@ -746,7 +938,7 @@ const patterns = [
             <CardHeader>
               <CardTitle>Basic Info</CardTitle>
               <CardDescription>
-                Title, author, excerpt, and source information
+                Title, excerpt, and source information
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -764,27 +956,6 @@ const patterns = [
                     value={formData.slug}
                     onChange={(e) =>
                       setFormData((p) => ({ ...p, slug: e.target.value }))
-                    }
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label>Author *</Label>
-                  <Input
-                    value={formData.author}
-                    onChange={(e) =>
-                      setFormData((p) => ({ ...p, author: e.target.value }))
-                    }
-                  />
-                </div>
-                <div>
-                  <Label>Source URL</Label>
-                  <Input
-                    value={formData.sourceUrl}
-                    onChange={(e) =>
-                      setFormData((p) => ({ ...p, sourceUrl: e.target.value }))
                     }
                   />
                 </div>
@@ -819,21 +990,20 @@ const patterns = [
             <CardHeader>
               <CardTitle>Content</CardTitle>
               <CardDescription>
-                Write your blog in Markdown and upload images to insert them at
-                the cursor position
+                Write your blog in Markdown. Copy and paste formatted content from any source - it will automatically preserve formatting including bold text, headings, spacing, and line breaks.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
                 <Label>Main Content *</Label>
                 <div className="border rounded-md">
-                  <MDEditor
+                  <EnhancedMDEditor
                     value={formData.content}
                     onChange={(v) =>
                       setFormData((p) => ({ ...p, content: v || "" }))
                     }
                     height={400}
-                    data-color-mode="light"
+                    field="content"
                   />
                 </div>
                 <div className="mt-2">
@@ -855,13 +1025,13 @@ const patterns = [
               <div>
                 <Label>Conclusion (Optional)</Label>
                 <div className="border rounded-md">
-                  <MDEditor
+                  <EnhancedMDEditor
                     value={formData.conclusion}
                     onChange={(v) =>
                       setFormData((p) => ({ ...p, conclusion: v || "" }))
                     }
                     height={400}
-                    data-color-mode="light"
+                    field="conclusion"
                   />
                 </div>
                 <div className="mt-2">
@@ -943,20 +1113,15 @@ const patterns = [
                 <div>
                   <Label>SEO Title</Label>
                   <Input
-                    maxLength={60}
                     value={formData.seoTitle}
                     onChange={(e) =>
                       setFormData((p) => ({ ...p, seoTitle: e.target.value }))
                     }
                   />
-                  <p className="text-xs text-muted-foreground">
-                    {formData.seoTitle.length}/60 characters
-                  </p>
                 </div>
                 <div>
                   <Label>SEO Description</Label>
                   <Textarea
-                    maxLength={160}
                     value={formData.seoDescription}
                     onChange={(e) =>
                       setFormData((p) => ({
@@ -965,36 +1130,40 @@ const patterns = [
                       }))
                     }
                   />
-                  <p className="text-xs text-muted-foreground">
-                    {formData.seoDescription.length}/160 characters
-                  </p>
                 </div>
               </div>
 
               <div>
                 <Label>Keywords</Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Enter keywords separated by commas (e.g., react, javascript, web development)
+                </p>
                 <div className="flex gap-2">
                   <Input
                     value={newKeyword}
                     onChange={(e) => setNewKeyword(e.target.value)}
-                    onKeyDown={(e) =>
-                      e.key === "Enter" && (e.preventDefault(), addKeyword())
-                    }
+                    placeholder="Enter keywords separated by commas..."
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addKeywords();
+                      }
+                    }}
                   />
-                  <Button type="button" onClick={addKeyword}>
+                  <Button type="button" onClick={addKeywords}>
                     <PlusCircle className="w-4 h-4" />
                   </Button>
                 </div>
                 <div className="flex flex-wrap gap-2 mt-2">
-                  {formData.keywords.map((keyword) => (
+                  {formData.keywords.map((keyword, index) => (
                     <Badge
-                      key={keyword}
+                      key={`${keyword}-${index}`}
                       variant="secondary"
                       className="flex items-center gap-1"
                     >
                       {keyword}
                       <X
-                        className="w-3 h-3 cursor-pointer"
+                        className="w-3 h-3 cursor-pointer hover:bg-destructive/20 rounded-full"
                         onClick={() => removeKeyword(keyword)}
                       />
                     </Badge>
@@ -1004,28 +1173,36 @@ const patterns = [
 
               <div>
                 <Label>Tags</Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Enter tags separated by commas (e.g., tutorial, beginner, advanced)
+                </p>
                 <div className="flex gap-2">
                   <Input
                     value={newTag}
                     onChange={(e) => setNewTag(e.target.value)}
-                    onKeyDown={(e) =>
-                      e.key === "Enter" && (e.preventDefault(), addTag())
-                    }
+                    placeholder="Enter tags separated by commas..."
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addTags();
+                      }
+                    }}
                   />
-                  <Button type="button" onClick={addTag}>
+                  <Button type="button" onClick={addTags}>
                     <PlusCircle className="w-4 h-4" />
                   </Button>
                 </div>
                 <div className="flex flex-wrap gap-2 mt-2">
-                  {formData.tags.map((tag) => (
+                  {formData.tags.map((tag, index) => (
                     <Badge
-                      key={tag}
+                      key={`${tag}-${index}`}
                       variant="outline"
-                      className="flex items-center gap-1"
+                      className="flex items-center gap-1 cursor-pointer"
+                      onClick={() => removeTag(tag)}
                     >
                       {tag}
                       <X
-                        className="w-3 h-3 cursor-pointer"
+                        className="w-3 h-3 cursor-pointer hover:bg-destructive/20 rounded-full"
                         onClick={() => removeTag(tag)}
                       />
                     </Badge>
@@ -1044,7 +1221,7 @@ const patterns = [
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isUploading}>
+            <Button type="submit" className=" cursor-pointer" disabled={isUploading}>
               {isUploading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
