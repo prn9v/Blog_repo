@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,7 +16,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { PlusCircle, X, ArrowLeft, FileText, Loader2 } from "lucide-react";
 import dynamic from "next/dynamic";
-import Image from "next/image";
 
 // Dynamically import to avoid SSR issues
 const MDEditor = dynamic(() => import("@uiw/react-md-editor"), { ssr: false });
@@ -57,10 +56,10 @@ interface BlogPost {
   coverImageUrl: string;
   coverImageAlt: string;
   sourceUrl: string;
-  keywords: string[];
+  keywords: (string | { id: string; word?: string; title?: string })[];
   seoTitle: string;
   seoDescription: string;
-  tags: string[];
+  tags: (string | { id: string; word?: string; title?: string })[];
   imageUrls: string[];
 }
 
@@ -74,18 +73,25 @@ interface BlogPostJSON {
   coverImageUrl: string;
   BlogType: string;
   sourceUrl: string;
-  keywords: string[];
-  tags: string[];
+  keywords: (string | { id: string; word?: string; title?: string })[];
+  tags: (string | { id: string; word?: string; title?: string })[];
   imageUrls: string[];
   seoTitle: string;
   seoDescription: string;
 }
 
-const CreateBlog = () => {
+const UpdateBlog = () => {
   const router = useRouter();
+  const params = useParams<{ id: string }>();
   const [isUploading, setIsUploading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const [loading, setLoading] = useState(true);
   const contentEditorRef = useRef<HTMLTextAreaElement | null>(null);
   const conclusionEditorRef = useRef<HTMLTextAreaElement | null>(null);
+  const [originalFormData, setOriginalFormData] = useState<BlogPost | null>(null);
+
 
   const [formData, setFormData] = useState<BlogPost>({
     title: "",
@@ -106,6 +112,134 @@ const CreateBlog = () => {
 
   const [newKeyword, setNewKeyword] = useState("");
   const [newTag, setNewTag] = useState("");
+
+  // Fetch blog data on component mount
+  useEffect(() => {
+    const fetchBlog = async () => {
+      if (!params.id) return;
+  
+      console.log(params.id);
+      try {
+        setLoading(true);
+        const response = await fetch(`https://staging.api.infigon.app/v1/teams/blogs/${params.id}`, {
+          credentials: "include",
+        });
+        
+        if (!response.ok) {
+          throw new Error("Failed to fetch blog");
+        }
+        
+        const blogData = await response.json();
+        
+        // Convert content blocks back to markdown for editing
+        const contentMarkdown = blogData.content?.map((block: ContentBlock) => {
+          return block.rawContent ?? block.text ?? "";
+        }).join("\n\n") ?? "";
+        const conclusionMarkdown = blogData.conclusion?.map((block: ContentBlock) => {
+          return block.rawContent ?? block.text ?? "";
+        }).join("\n\n") ?? "";
+        
+        const fetchedData = {
+          title: blogData.title || "",
+          slug: blogData.slug || "",
+          content: contentMarkdown,
+          conclusion: conclusionMarkdown,
+          readTime: blogData.readTime || 1,
+          excerpt: blogData.excerpt || "",
+          coverImageUrl: blogData.coverImageUrl || "",
+          coverImageAlt: blogData.coverImageAlt || "",
+          sourceUrl: blogData.sourceUrl || "",
+          keywords: blogData.keywords || [],
+          seoTitle: blogData.seoTitle || "",
+          seoDescription: blogData.seoDescription || "",
+          tags: blogData.tags || [],
+          imageUrls: blogData.imageUrls || [],
+        };
+  
+        setFormData(fetchedData);
+        setOriginalFormData(fetchedData); // Store original data for comparison
+      } catch (error) {
+        console.error("Error fetching blog:", error);
+        alert("Failed to load blog data");
+      } finally {
+        setLoading(false);
+      }
+    };
+  
+    fetchBlog();
+  }, [params.id]);
+
+  type KeywordOrTag = string | { id: string; word?: string; title?: string };
+
+  const arraysEqual = (a: KeywordOrTag[], b: KeywordOrTag[]): boolean => {
+    if (a.length !== b.length) return false;
+    return JSON.stringify(a.sort()) === JSON.stringify(b.sort());
+  };
+
+  
+  // Helper function to get changed fields
+  const getChangedFields = (original: BlogPost, current: BlogPost) => {
+    const changes: Partial<BlogPostJSON> = {};
+  
+    // Compare each field
+    if (original.title !== current.title) {
+      changes.title = current.title;
+    }
+  
+    if (original.slug !== current.slug) {
+      changes.slug = current.slug;
+    }
+  
+    if (original.content !== current.content) {
+      changes.content = parseContentToJSON(current.content);
+    }
+  
+    if (original.conclusion !== current.conclusion) {
+      if (current.conclusion) {
+        changes.conclusion = parseContentToJSON(current.conclusion);
+      } else {
+        changes.conclusion = undefined;
+      }
+    }
+  
+    if (original.readTime !== current.readTime) {
+      changes.readTime = current.readTime;
+    }
+  
+    if (original.excerpt !== current.excerpt) {
+      changes.excerpt = current.excerpt;
+    }
+  
+    if (original.coverImageUrl !== current.coverImageUrl) {
+      changes.coverImageUrl = current.coverImageUrl;
+    }
+  
+    if (original.sourceUrl !== current.sourceUrl) {
+      changes.sourceUrl = current.sourceUrl;
+    }
+  
+    if (!arraysEqual(original.keywords, current.keywords)) {
+      changes.keywords = current.keywords;
+    }
+  
+    if (original.seoTitle !== current.seoTitle) {
+      changes.seoTitle = current.seoTitle;
+    }
+  
+    if (original.seoDescription !== current.seoDescription) {
+      changes.seoDescription = current.seoDescription;
+    }
+  
+    if (!arraysEqual(original.tags, current.tags)) {
+      changes.tags = current.tags;
+    }
+  
+    if (!arraysEqual(original.imageUrls, current.imageUrls)) {
+      changes.imageUrls = current.imageUrls;
+    }
+  
+    return changes;
+  };
 
   const htmlToMarkdown = useCallback((html: string): string => {
     // Create a temporary div to parse HTML
@@ -803,7 +937,12 @@ const CreateBlog = () => {
   const removeKeyword = (keywordToRemove: string) => {
     setFormData((prev) => ({
       ...prev,
-      keywords: prev.keywords.filter((keyword) => keyword !== keywordToRemove),
+      keywords: prev.keywords.filter((keyword) => {
+        if (typeof keyword === 'object') {
+          return (keyword.word || keyword.title || '') !== keywordToRemove;
+        }
+        return keyword !== keywordToRemove;
+      }),
     }));
   };
 
@@ -830,78 +969,174 @@ const CreateBlog = () => {
   const removeTag = (tagToRemove: string) => {
     setFormData((prev) => ({
       ...prev,
-      tags: prev.tags.filter((tag) => tag !== tagToRemove),
+      tags: prev.tags.filter((tag) => {
+        if (typeof tag === 'object') {
+          return (tag.word || tag.title || '') !== tagToRemove;
+        }
+        return tag !== tagToRemove;
+      }),
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!formData.title || !formData.content || !formData.coverImageAlt) {
+  const handleSave = async () => {
+    if (!params.id) {
+      alert("Blog ID not found");
+      return;
+    }
+  
+    if (!formData.title || !formData.content) {
       alert(
-        "Please fill in all required fields (Title, Content, and Cover Image Alt)."
+        "Please fill in all required fields (Title, Content)."
       );
       return;
     }
-
+  
+    if (!originalFormData) {
+      alert("Original data not loaded. Please refresh and try again.");
+      return;
+    }
+  
     try {
-      setIsUploading(true);
-
-      const parsedContent = parseContentToJSON(formData.content);
-      const parsedConclusion = formData.conclusion
-        ? parseContentToJSON(formData.conclusion)
-        : undefined;
-
-      const blogPostJSON: BlogPostJSON = {
-        title: formData.title,
-        slug: formData.slug,
-        content: parsedContent,
-        conclusion: parsedConclusion,
-        readTime: formData.readTime,
-        excerpt: formData.excerpt,
-        coverImageUrl: formData.coverImageUrl,
-        BlogType: "INFIGON", // Set to INFIGON as requested
-        sourceUrl: "https://www.infigonfutures.com/blogs",
-        keywords: formData.keywords,
-        tags: formData.tags,
-        imageUrls: formData.imageUrls,
-        seoTitle: formData.seoTitle,
-        seoDescription: formData.seoDescription,
-      };
-
+      setIsSaving(true);
+  
+      // Get only the changed fields
+      const changedFields = getChangedFields(originalFormData, formData);
+      
+      // Check if there are any changes
+      if (Object.keys(changedFields).length === 0) {
+        alert("No changes detected.");
+        setIsSaving(false);
+        return;
+      }
+  
+      console.log("Changed fields:", changedFields);
+      console.log("Stringified JSON:", JSON.stringify(changedFields, null, 2));
+  
       const response = await fetch(
-        "https://staging.api.infigon.app/v1/teams/blogs",
+        `https://staging.api.infigon.app/v1/teams/blogs/${params.id}`,
         {
-          method: "POST",
+          method: "PATCH",
           headers: {
             "Content-Type": "application/json",
           },
           credentials: "include",
-          body: JSON.stringify(blogPostJSON),
+          body: JSON.stringify(changedFields),
         }
       );
-
+  
+      console.log("API Response status:", response.status);
+      console.log("API Response:", response);
+  
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        let errorData;
+        try {
+          errorData = await response.json();
+          console.error("API Error Details:", errorData);
+        } catch (jsonError) {
+          // If response is not JSON, try to get text
+          try {
+            const errorText = await response.text();
+            console.error("API Error Text:", errorText);
+            errorData = { 
+              message: errorText || `HTTP ${response.status}: ${response.statusText}`,
+              status: response.status 
+            };
+          } catch (textError) {
+            console.error("Could not parse error response:", textError);
+            errorData = { 
+              message: `HTTP ${response.status}: ${response.statusText}`,
+              status: response.status 
+            };
+          }
+        }
+        
         throw new Error(
           errorData.message || `HTTP error! Status: ${response.status}`
         );
       }
-
-      const result = await response.json();
-
-      router.push("/");
+  
+      // Parse successful response
+      const responseData = await response.json();
+      console.log("Success response:", responseData);
+  
+      // Update the original form data to current form data after successful save
+      setOriginalFormData({...formData});
+      setIsSaved(true);
+      alert("Blog saved successfully!");
     } catch (error) {
-      console.error("Error creating blog post:", error);
+      console.error("Error saving blog post:", error);
+      
+      // More detailed error handling
+      let errorMessage = "An unexpected error occurred";
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
+      alert(`Error saving blog post: ${errorMessage}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  const handlePublish = async () => {
+    if (!params.id) {
+      alert("Blog ID not found");
+      return;
+    }
+
+    if (!isSaved) {
+      alert("Please save the blog first before publishing.");
+      return;
+    }
+
+    try {
+      setIsPublishing(true);
+
+      const publishResponse = await fetch(
+        `https://staging.api.infigon.app/v1/teams/blogs/publish/${params.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({ published: true }),
+        }
+      );
+
+      if (!publishResponse.ok) {
+        const errorData = await publishResponse.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || `HTTP error! Status: ${publishResponse.status}`
+        );
+      }
+
+      alert("Blog published successfully!");
+      router.push("/allBlogs");
+    } catch (error) {
+      console.error("Error publishing blog post:", error);
       const errorMessage =
         error instanceof Error ? error.message : "An unexpected error occurred";
-      alert(`Error creating blog post: ${errorMessage}`);
+      alert(`Error publishing blog post: ${errorMessage}`);
     } finally {
-      setIsUploading(false);
+      setIsPublishing(false);
     }
   };
 
   
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-muted/20 py-10 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p>Loading blog data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-muted/20 py-10">
@@ -921,9 +1156,9 @@ const CreateBlog = () => {
               <FileText className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">Create Blog Post</h1>
+              <h1 className="text-2xl font-bold">Update Blog Post</h1>
               <p className="text-sm text-muted-foreground">
-                Write something worth reading ✍️
+                Edit your blog post and save changes ✍️
               </p>
             </div>
           </div>
@@ -936,7 +1171,7 @@ const CreateBlog = () => {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Basic Info</CardTitle>
@@ -1096,9 +1331,7 @@ const CreateBlog = () => {
                 <div className="mt-4">
                   <Label>Cover Image Preview</Label>
                   <div className="mt-2 border rounded-lg overflow-hidden">
-                    <Image
-                      width={100}
-                      height={100}
+                    <img
                       src={formData.coverImageUrl}
                       alt={formData.coverImageAlt}
                       className="w-full h-48 object-cover"
@@ -1162,14 +1395,14 @@ const CreateBlog = () => {
                 <div className="flex flex-wrap gap-2 mt-2">
                   {formData.keywords.map((keyword, index) => (
                     <Badge
-                      key={`${keyword}-${index}`}
+                      key={`${typeof keyword === 'object' ? keyword.id : keyword}-${index}`}
                       variant="secondary"
                       className="flex items-center gap-1"
                     >
-                      {keyword}
+                      {typeof keyword === 'object' ? (keyword.word || keyword.title || '') : keyword}
                       <X
                         className="w-3 h-3 cursor-pointer hover:bg-destructive/20 rounded-full"
-                        onClick={() => removeKeyword(keyword)}
+                        onClick={() => removeKeyword(typeof keyword === 'object' ? (keyword.word || keyword.title || '') : keyword)}
                       />
                     </Badge>
                   ))}
@@ -1200,15 +1433,15 @@ const CreateBlog = () => {
                 <div className="flex flex-wrap gap-2 mt-2">
                   {formData.tags.map((tag, index) => (
                     <Badge
-                      key={`${tag}-${index}`}
+                      key={`${typeof tag === 'object' ? tag.id : tag}-${index}`}
                       variant="outline"
                       className="flex items-center gap-1 cursor-pointer"
-                      onClick={() => removeTag(tag)}
+                      onClick={() => removeTag(typeof tag === 'object' ? (tag.word || tag.title || '') : tag)}
                     >
-                      {tag}
+                      {typeof tag === 'object' ? (tag.word || tag.title || '') : tag}
                       <X
                         className="w-3 h-3 cursor-pointer hover:bg-destructive/20 rounded-full"
-                        onClick={() => removeTag(tag)}
+                        onClick={() => removeTag(typeof tag === 'object' ? (tag.word || tag.title || '') : tag)}
                       />
                     </Badge>
                   ))}
@@ -1222,21 +1455,39 @@ const CreateBlog = () => {
               type="button"
               variant="outline"
               onClick={() => router.push("/")}
-              disabled={isUploading}
+              disabled={isSaving || isPublishing}
             >
               Cancel
             </Button>
-            <Button type="submit" className=" cursor-pointer" disabled={isUploading}>
-              {isUploading ? (
+            <Button
+              type="button"
+              onClick={handleSave}
+              disabled={isSaving || isPublishing || loading}
+            >
+              {isSaving ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Processing...
+                  Saving...
                 </>
               ) : (
-                "Create Blog Post"
+                "Save Blog"
               )}
             </Button>
-            
+            <Button 
+              type="button" 
+              className="cursor-pointer" 
+              disabled={!isSaved || isSaving || isPublishing || loading}
+              onClick={handlePublish}
+            >
+              {isPublishing ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Publishing...
+                </>
+              ) : (
+                "Publish Blog"
+              )}
+            </Button>
           </div>
         </form>
       </div>
@@ -1244,4 +1495,4 @@ const CreateBlog = () => {
   );
 };
 
-export default CreateBlog;
+export default UpdateBlog;

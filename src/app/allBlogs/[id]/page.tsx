@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Clock, User, Calendar, List } from "lucide-react";
+import { ArrowLeft, Clock, User, Calendar, List, Loader2 } from "lucide-react";
 import Image from "next/image";
 
 interface FormattedContent {
@@ -43,6 +43,8 @@ interface TocItem {
   title: string;
   level: number;
 }
+
+
 
 const isValidUrl = (url: string): boolean => {
   try {
@@ -227,6 +229,7 @@ const SingleBlog = () => {
   const [blog, setBlog] = useState<Blog | null>(null);
   const [loading, setLoading] = useState(true);
   const [tocItems, setTocItems] = useState<TocItem[]>([]);
+  const [isPublishing, setIsPublishing] = useState(false);
 
   useEffect(() => {
     const fetchBlog = async () => {
@@ -255,6 +258,46 @@ const SingleBlog = () => {
         behavior: 'smooth',
         block: 'start',
       });
+    }
+  };
+
+  const handlePublish = async () => {
+    if (!params.id) {
+      alert("Blog ID not found");
+      return;
+    }
+
+    try {
+      setIsPublishing(true);
+
+      const publishResponse = await fetch(
+        `https://staging.api.infigon.app/v1/teams/blogs/publish/${params.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({ published: true }),
+        }
+      );
+
+      if (!publishResponse.ok) {
+        const errorData = await publishResponse.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || `HTTP error! Status: ${publishResponse.status}`
+        );
+      }
+
+      alert("Blog post published successfully!");
+      router.push("/allBlogs");
+    } catch (error) {
+      console.error("Error publishing blog post:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "An unexpected error occurred";
+      alert(`Error publishing blog post: ${errorMessage}`);
+    } finally {
+      setIsPublishing(false);
     }
   };
 
@@ -353,6 +396,17 @@ const SingleBlog = () => {
             ) : null}
           </div>
         </article>
+
+        <Button className="cursor-pointer" disabled={isPublishing} onClick={handlePublish}>
+          {isPublishing ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Publishing...
+            </>
+          ) : (
+            "Publish Post"
+          )}
+        </Button>
       </div>
 
       {/* Table of Contents */}
