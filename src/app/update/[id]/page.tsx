@@ -90,8 +90,9 @@ const UpdateBlog = () => {
   const [loading, setLoading] = useState(true);
   const contentEditorRef = useRef<HTMLTextAreaElement | null>(null);
   const conclusionEditorRef = useRef<HTMLTextAreaElement | null>(null);
-  const [originalFormData, setOriginalFormData] = useState<BlogPost | null>(null);
-
+  const [originalFormData, setOriginalFormData] = useState<BlogPost | null>(
+    null
+  );
 
   const [formData, setFormData] = useState<BlogPost>({
     title: "",
@@ -117,28 +118,37 @@ const UpdateBlog = () => {
   useEffect(() => {
     const fetchBlog = async () => {
       if (!params.id) return;
-  
+
       console.log(params.id);
       try {
         setLoading(true);
-        const response = await fetch(`https://staging.api.infigon.app/v1/teams/blogs/${params.id}`, {
-          credentials: "include",
-        });
-        
+        const response = await fetch(
+          `https://staging.api.infigon.app/v1/teams/blogs/${params.id}`,
+          {
+            credentials: "include",
+          }
+        );
+
         if (!response.ok) {
           throw new Error("Failed to fetch blog");
         }
-        
+
         const blogData = await response.json();
-        
+
         // Convert content blocks back to markdown for editing
-        const contentMarkdown = blogData.content?.map((block: ContentBlock) => {
-          return block.rawContent ?? block.text ?? "";
-        }).join("\n\n") ?? "";
-        const conclusionMarkdown = blogData.conclusion?.map((block: ContentBlock) => {
-          return block.rawContent ?? block.text ?? "";
-        }).join("\n\n") ?? "";
-        
+        const contentMarkdown =
+          blogData.content
+            ?.map((block: ContentBlock) => {
+              return block.rawContent ?? block.text ?? "";
+            })
+            .join("\n\n") ?? "";
+        const conclusionMarkdown =
+          blogData.conclusion
+            ?.map((block: ContentBlock) => {
+              return block.rawContent ?? block.text ?? "";
+            })
+            .join("\n\n") ?? "";
+
         const fetchedData = {
           title: blogData.title || "",
           slug: blogData.slug || "",
@@ -155,7 +165,7 @@ const UpdateBlog = () => {
           tags: blogData.tags || [],
           imageUrls: blogData.imageUrls || [],
         };
-  
+
         setFormData(fetchedData);
         setOriginalFormData(fetchedData); // Store original data for comparison
       } catch (error) {
@@ -165,7 +175,7 @@ const UpdateBlog = () => {
         setLoading(false);
       }
     };
-  
+
     fetchBlog();
   }, [params.id]);
 
@@ -176,24 +186,23 @@ const UpdateBlog = () => {
     return JSON.stringify(a.sort()) === JSON.stringify(b.sort());
   };
 
-  
   // Helper function to get changed fields
   const getChangedFields = (original: BlogPost, current: BlogPost) => {
     const changes: Partial<BlogPostJSON> = {};
-  
+
     // Compare each field
     if (original.title !== current.title) {
       changes.title = current.title;
     }
-  
+
     if (original.slug !== current.slug) {
       changes.slug = current.slug;
     }
-  
+
     if (original.content !== current.content) {
       changes.content = parseContentToJSON(current.content);
     }
-  
+
     if (original.conclusion !== current.conclusion) {
       if (current.conclusion) {
         changes.conclusion = parseContentToJSON(current.conclusion);
@@ -201,49 +210,49 @@ const UpdateBlog = () => {
         changes.conclusion = undefined;
       }
     }
-  
+
     if (original.readTime !== current.readTime) {
       changes.readTime = current.readTime;
     }
-  
+
     if (original.excerpt !== current.excerpt) {
       changes.excerpt = current.excerpt;
     }
-  
+
     if (original.coverImageUrl !== current.coverImageUrl) {
       changes.coverImageUrl = current.coverImageUrl;
     }
-  
+
     if (original.sourceUrl !== current.sourceUrl) {
       changes.sourceUrl = current.sourceUrl;
     }
-  
+
     if (!arraysEqual(original.keywords, current.keywords)) {
       changes.keywords = current.keywords;
     }
-  
+
     if (original.seoTitle !== current.seoTitle) {
       changes.seoTitle = current.seoTitle;
     }
-  
+
     if (original.seoDescription !== current.seoDescription) {
       changes.seoDescription = current.seoDescription;
     }
-  
+
     if (!arraysEqual(original.tags, current.tags)) {
       changes.tags = current.tags;
     }
-  
+
     if (!arraysEqual(original.imageUrls, current.imageUrls)) {
       changes.imageUrls = current.imageUrls;
     }
-  
+
     return changes;
   };
 
   const htmlToMarkdown = useCallback((html: string): string => {
     // Create a temporary div to parse HTML
-    const tempDiv = document.createElement('div');
+    const tempDiv = document.createElement("div");
     tempDiv.innerHTML = html;
 
     let liCounter = 1; // Global counter for all li elements
@@ -251,70 +260,93 @@ const UpdateBlog = () => {
     // Function to process nodes recursively
     const processNode = (node: Node): string => {
       if (node.nodeType === Node.TEXT_NODE) {
-        return node.textContent || '';
+        return node.textContent || "";
       }
 
       if (node.nodeType === Node.ELEMENT_NODE) {
         const element = node as Element;
         const tagName = element.tagName.toLowerCase();
-        const children = Array.from(element.childNodes).map(processNode).join('');
+        const children = Array.from(element.childNodes)
+          .map(processNode)
+          .join("");
 
         switch (tagName) {
-          case 'h1': return `# ${children}\n\n`;
-          case 'h2': return `## ${children}\n\n`;
-          case 'h3': return `### ${children}\n\n`;
-          case 'h4': return `#### ${children}\n\n`;
-          case 'h5': return `##### ${children}\n\n`;
-          case 'h6': return `###### ${children}\n\n`;
-          case 'p': return `${children}\n\n`;
-          case 'br': return '\n';
-          case 'b': 
-          case 'strong': return `**${children}**`;
-          case 'i': 
-          case 'em': return `*${children}*`;
-          case 'code': return `\`${children}\``;
-          case 'pre': return `\`\`\`\n${children}\n\`\`\`\n\n`;
-          case 'blockquote': return `> ${children}\n\n`;
-          case 'ul':
-          case 'ol':
+          case "h1":
+            return `# ${children}\n\n`;
+          case "h2":
+            return `## ${children}\n\n`;
+          case "h3":
+            return `### ${children}\n\n`;
+          case "h4":
+            return `#### ${children}\n\n`;
+          case "h5":
+            return `##### ${children}\n\n`;
+          case "h6":
+            return `###### ${children}\n\n`;
+          case "p":
+            return `${children}\n\n`;
+          case "br":
+            return "\n";
+          case "b":
+          case "strong":
+            return `**${children}**`;
+          case "i":
+          case "em":
+            return `*${children}*`;
+          case "code":
+            return `\`${children}\``;
+          case "pre":
+            return `\`\`\`\n${children}\n\`\`\`\n\n`;
+          case "blockquote":
+            return `> ${children}\n\n`;
+          case "ul":
+          case "ol":
             // Just return children without any wrapper formatting
             return children;
-          case 'li': 
-            const listItem = `${liCounter}. ${children.replace(/\n\n$/, '')}\n`;
+          case "li":
+            const listItem = `${liCounter}. ${children.replace(/\n\n$/, "")}\n`;
             liCounter++;
             return listItem;
-          case 'a':
-            const href = element.getAttribute('href');
+          case "a":
+            const href = element.getAttribute("href");
             return href ? `[${children}](${href})` : children;
-          case 'img':
-            const src = element.getAttribute('src');
-            const alt = element.getAttribute('alt') || '';
-            return src ? `![${alt}](${src})` : '';
-          case 'table':
+          case "img":
+            const src = element.getAttribute("src");
+            const alt = element.getAttribute("alt") || "";
+            return src ? `![${alt}](${src})` : "";
+          case "table":
             // Basic table support
-            const rows = Array.from(element.querySelectorAll('tr'));
+            const rows = Array.from(element.querySelectorAll("tr"));
             if (rows.length === 0) return children;
-                      
-            let tableMarkdown = '';
+
+            let tableMarkdown = "";
             rows.forEach((row, rowIndex) => {
-              const cells = Array.from(row.querySelectorAll('td, th'));
-              const cellContents = cells.map(cell => processNode(cell).trim());
-              tableMarkdown += `| ${cellContents.join(' | ')} |\n`;
-                          
+              const cells = Array.from(row.querySelectorAll("td, th"));
+              const cellContents = cells.map((cell) =>
+                processNode(cell).trim()
+              );
+              tableMarkdown += `| ${cellContents.join(" | ")} |\n`;
+
               // Add separator after header row
               if (rowIndex === 0 && cells.length > 0) {
-                tableMarkdown += `| ${cells.map(() => '---').join(' | ')} |\n`;
+                tableMarkdown += `| ${cells.map(() => "---").join(" | ")} |\n`;
               }
             });
-            return tableMarkdown + '\n';
-          case 'div':
-          case 'span':
+            return tableMarkdown + "\n";
+          case "div":
+          case "span":
             // Check for specific styling
-            const style = element.getAttribute('style') || '';
-            if (style.includes('font-weight: bold') || style.includes('font-weight:bold')) {
+            const style = element.getAttribute("style") || "";
+            if (
+              style.includes("font-weight: bold") ||
+              style.includes("font-weight:bold")
+            ) {
               return `**${children}**`;
             }
-            if (style.includes('font-style: italic') || style.includes('font-style:italic')) {
+            if (
+              style.includes("font-style: italic") ||
+              style.includes("font-style:italic")
+            ) {
               return `*${children}*`;
             }
             return children;
@@ -323,107 +355,38 @@ const UpdateBlog = () => {
         }
       }
 
-      return '';
+      return "";
     };
 
     return processNode(tempDiv).trim();
   }, []);
 
-  // Enhanced paste handler for markdown editors
-  const handlePaste = useCallback((event: ClipboardEvent, field: 'content' | 'conclusion') => {
-    const clipboardData = event.clipboardData;
-    if (!clipboardData) return;
+  const handlePaste = useCallback(
+    (
+      event: React.ClipboardEvent<HTMLDivElement>,
+      field: "content" | "conclusion"
+    ) => {
+      const clipboardData = event.clipboardData;
+      if (!clipboardData) return;
 
-    // Get HTML content if available
-    const htmlContent = clipboardData.getData('text/html');
-    const plainText = clipboardData.getData('text/plain');
+      const htmlContent = clipboardData.getData("text/html");
+      const plainText = clipboardData.getData("text/plain");
 
-    if (htmlContent && htmlContent.trim() !== '') {
-      event.preventDefault();
-      
-      // Convert HTML to Markdown
-      const markdownContent = htmlToMarkdown(htmlContent);
-      
-      // Get current cursor position
-      const textarea = field === 'content' ? contentEditorRef.current : conclusionEditorRef.current;
-      const currentValue = formData[field] || '';
-      
-      if (textarea) {
-        const startPos = textarea.selectionStart || 0;
-        const endPos = textarea.selectionEnd || 0;
-        
-        // Insert the markdown content at cursor position
-        const newValue = 
-          currentValue.substring(0, startPos) + 
-          markdownContent + 
-          currentValue.substring(endPos);
-        
-        setFormData(prev => ({
+      // Only process HTML content if it exists and is non-empty
+      if (htmlContent && htmlContent.trim() !== "") {
+        event.preventDefault(); // Prevent default paste to avoid raw HTML insertion
+        const markdownContent = htmlToMarkdown(htmlContent);
+        setFormData((prev) => ({
           ...prev,
-          [field]: newValue
-        }));
-      } else {
-        // Fallback: append to end
-        setFormData(prev => ({
-          ...prev,
-          [field]: currentValue ? `${currentValue}\n\n${markdownContent}` : markdownContent
+          [field]: prev[field]
+            ? `${prev[field]}\n\n${markdownContent}`
+            : markdownContent,
         }));
       }
-    }
-  }, [formData, htmlToMarkdown]);
-
-  // Custom MDEditor component with enhanced paste handling
-  const EnhancedMDEditor = ({ 
-    value, 
-    onChange, 
-    height, 
-    field 
-  }: { 
-    value: string; 
-    onChange: (val?: string) => void; 
-    height: number;
-    field: 'content' | 'conclusion';
-  }) => {
-    const editorRef = useRef<HTMLDivElement>(null);
-
-    const handleEditorPaste = useCallback((e: unknown) => {
-      const clipboardEvent = e as ClipboardEvent;
-      handlePaste(clipboardEvent, field);
-    }, [field]);
-
-    // Effect to assign the ref after component mounts
-    useEffect(() => {
-      if (editorRef.current) {
-        const textarea = editorRef.current.querySelector('textarea');
-        if (textarea) {
-          if (field === 'content') {
-            contentEditorRef.current = textarea;
-          } else {
-            conclusionEditorRef.current = textarea;
-          }
-        }
-      }
-    }, [field]);
-
-    return (
-      <div ref={editorRef} onPaste={handleEditorPaste}>
-        <MDEditor
-          value={value}
-          onChange={onChange}
-          height={height}
-          data-color-mode="light"
-          textareaProps={{
-            placeholder: `Enter your ${field} here... You can paste formatted content and it will be converted to Markdown automatically.`,
-            style: {
-              fontSize: '14px',
-              lineHeight: '1.6',
-              fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
-            }
-          }}
-        />
-      </div>
-    );
-  };
+      // If only plain text is available, the editor will handle it natively
+    },
+    [htmlToMarkdown, setFormData] // Include setFormData in dependencies
+  );
 
   const generateSlug = (title: string) => {
     return title
@@ -920,10 +883,10 @@ const UpdateBlog = () => {
     if (trimmed) {
       // Split by comma and process each keyword
       const newKeywords = trimmed
-        .split(',')
-        .map(keyword => keyword.trim())
-        .filter(keyword => keyword && !formData.keywords.includes(keyword));
-      
+        .split(",")
+        .map((keyword) => keyword.trim())
+        .filter((keyword) => keyword && !formData.keywords.includes(keyword));
+
       if (newKeywords.length > 0) {
         setFormData((prev) => ({
           ...prev,
@@ -938,8 +901,8 @@ const UpdateBlog = () => {
     setFormData((prev) => ({
       ...prev,
       keywords: prev.keywords.filter((keyword) => {
-        if (typeof keyword === 'object') {
-          return (keyword.word || keyword.title || '') !== keywordToRemove;
+        if (typeof keyword === "object") {
+          return (keyword.word || keyword.title || "") !== keywordToRemove;
         }
         return keyword !== keywordToRemove;
       }),
@@ -952,10 +915,10 @@ const UpdateBlog = () => {
     if (trimmed) {
       // Split by comma and process each tag
       const newTags = trimmed
-        .split(',')
-        .map(tag => tag.trim())
-        .filter(tag => tag && !formData.tags.includes(tag));
-      
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter((tag) => tag && !formData.tags.includes(tag));
+
       if (newTags.length > 0) {
         setFormData((prev) => ({
           ...prev,
@@ -970,8 +933,8 @@ const UpdateBlog = () => {
     setFormData((prev) => ({
       ...prev,
       tags: prev.tags.filter((tag) => {
-        if (typeof tag === 'object') {
-          return (tag.word || tag.title || '') !== tagToRemove;
+        if (typeof tag === "object") {
+          return (tag.word || tag.title || "") !== tagToRemove;
         }
         return tag !== tagToRemove;
       }),
@@ -983,35 +946,33 @@ const UpdateBlog = () => {
       alert("Blog ID not found");
       return;
     }
-  
+
     if (!formData.title || !formData.content) {
-      alert(
-        "Please fill in all required fields (Title, Content)."
-      );
+      alert("Please fill in all required fields (Title, Content).");
       return;
     }
-  
+
     if (!originalFormData) {
       alert("Original data not loaded. Please refresh and try again.");
       return;
     }
-  
+
     try {
       setIsSaving(true);
-  
+
       // Get only the changed fields
       const changedFields = getChangedFields(originalFormData, formData);
-      
+
       // Check if there are any changes
       if (Object.keys(changedFields).length === 0) {
         alert("No changes detected.");
         setIsSaving(false);
         return;
       }
-  
+
       console.log("Changed fields:", changedFields);
       console.log("Stringified JSON:", JSON.stringify(changedFields, null, 2));
-  
+
       const response = await fetch(
         `https://staging.api.infigon.app/v1/teams/blogs/${params.id}`,
         {
@@ -1023,10 +984,10 @@ const UpdateBlog = () => {
           body: JSON.stringify(changedFields),
         }
       );
-  
+
       console.log("API Response status:", response.status);
       console.log("API Response:", response);
-  
+
       if (!response.ok) {
         let errorData;
         try {
@@ -1037,44 +998,45 @@ const UpdateBlog = () => {
           try {
             const errorText = await response.text();
             console.error("API Error Text:", errorText);
-            errorData = { 
-              message: errorText || `HTTP ${response.status}: ${response.statusText}`,
-              status: response.status 
+            errorData = {
+              message:
+                errorText || `HTTP ${response.status}: ${response.statusText}`,
+              status: response.status,
             };
           } catch (textError) {
             console.error("Could not parse error response:", textError);
-            errorData = { 
+            errorData = {
               message: `HTTP ${response.status}: ${response.statusText}`,
-              status: response.status 
+              status: response.status,
             };
           }
         }
-        
+
         throw new Error(
           errorData.message || `HTTP error! Status: ${response.status}`
         );
       }
-  
+
       // Parse successful response
       const responseData = await response.json();
       console.log("Success response:", responseData);
-  
+
       // Update the original form data to current form data after successful save
-      setOriginalFormData({...formData});
+      setOriginalFormData({ ...formData });
       setIsSaved(true);
       alert("Blog saved successfully!");
     } catch (error) {
       console.error("Error saving blog post:", error);
-      
+
       // More detailed error handling
       let errorMessage = "An unexpected error occurred";
-      
+
       if (error instanceof Error) {
         errorMessage = error.message;
-      } else if (typeof error === 'string') {
+      } else if (typeof error === "string") {
         errorMessage = error;
       }
-      
+
       alert(`Error saving blog post: ${errorMessage}`);
     } finally {
       setIsSaving(false);
@@ -1124,8 +1086,6 @@ const UpdateBlog = () => {
       setIsPublishing(false);
     }
   };
-
-  
 
   if (loading) {
     return (
@@ -1228,20 +1188,26 @@ const UpdateBlog = () => {
             <CardHeader>
               <CardTitle>Content</CardTitle>
               <CardDescription>
-                Write your blog in Markdown. Copy and paste formatted content from any source - it will automatically preserve formatting including bold text, headings, spacing, and line breaks.
+                Write your blog in Markdown. Copy and paste formatted content
+                from any source - it will automatically preserve formatting
+                including bold text, headings, spacing, and line breaks.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
                 <Label>Main Content *</Label>
                 <div className="border rounded-md">
-                  <EnhancedMDEditor
+                  <MDEditor
                     value={formData.content}
                     onChange={(v) =>
                       setFormData((p) => ({ ...p, content: v || "" }))
                     }
                     height={400}
-                    field="content"
+                    data-color-mode="light"
+                    onPaste={(e) => handlePaste(e, "content")}
+                    textareaProps={{
+                      placeholder: `Enter your content here... You can paste formatted content and it will be converted to Markdown automatically.`,
+                    }}
                   />
                 </div>
                 <div className="mt-2">
@@ -1260,16 +1226,21 @@ const UpdateBlog = () => {
                   )}
                 </div>
               </div>
+
               <div>
                 <Label>Conclusion (Optional)</Label>
                 <div className="border rounded-md">
-                  <EnhancedMDEditor
+                  <MDEditor
                     value={formData.conclusion}
                     onChange={(v) =>
                       setFormData((p) => ({ ...p, conclusion: v || "" }))
                     }
                     height={400}
-                    field="conclusion"
+                    data-color-mode="light"
+                    onPaste={(e) => handlePaste(e, "conclusion")}
+                    textareaProps={{
+                      placeholder: `Enter your conclusion here... You can paste formatted conclusion and it will be converted to Markdown automatically.`,
+                    }}
                   />
                 </div>
                 <div className="mt-2">
@@ -1374,7 +1345,8 @@ const UpdateBlog = () => {
               <div>
                 <Label>Keywords</Label>
                 <p className="text-xs text-muted-foreground mb-2">
-                  Enter keywords separated by commas (e.g., react, javascript, web development)
+                  Enter keywords separated by commas (e.g., react, javascript,
+                  web development)
                 </p>
                 <div className="flex gap-2">
                   <Input
@@ -1395,14 +1367,24 @@ const UpdateBlog = () => {
                 <div className="flex flex-wrap gap-2 mt-2">
                   {formData.keywords.map((keyword, index) => (
                     <Badge
-                      key={`${typeof keyword === 'object' ? keyword.id : keyword}-${index}`}
+                      key={`${
+                        typeof keyword === "object" ? keyword.id : keyword
+                      }-${index}`}
                       variant="secondary"
                       className="flex items-center gap-1"
                     >
-                      {typeof keyword === 'object' ? (keyword.word || keyword.title || '') : keyword}
+                      {typeof keyword === "object"
+                        ? keyword.word || keyword.title || ""
+                        : keyword}
                       <X
                         className="w-3 h-3 cursor-pointer hover:bg-destructive/20 rounded-full"
-                        onClick={() => removeKeyword(typeof keyword === 'object' ? (keyword.word || keyword.title || '') : keyword)}
+                        onClick={() =>
+                          removeKeyword(
+                            typeof keyword === "object"
+                              ? keyword.word || keyword.title || ""
+                              : keyword
+                          )
+                        }
                       />
                     </Badge>
                   ))}
@@ -1412,7 +1394,8 @@ const UpdateBlog = () => {
               <div>
                 <Label>Tags</Label>
                 <p className="text-xs text-muted-foreground mb-2">
-                  Enter tags separated by commas (e.g., tutorial, beginner, advanced)
+                  Enter tags separated by commas (e.g., tutorial, beginner,
+                  advanced)
                 </p>
                 <div className="flex gap-2">
                   <Input
@@ -1433,15 +1416,29 @@ const UpdateBlog = () => {
                 <div className="flex flex-wrap gap-2 mt-2">
                   {formData.tags.map((tag, index) => (
                     <Badge
-                      key={`${typeof tag === 'object' ? tag.id : tag}-${index}`}
+                      key={`${typeof tag === "object" ? tag.id : tag}-${index}`}
                       variant="outline"
                       className="flex items-center gap-1 cursor-pointer"
-                      onClick={() => removeTag(typeof tag === 'object' ? (tag.word || tag.title || '') : tag)}
+                      onClick={() =>
+                        removeTag(
+                          typeof tag === "object"
+                            ? tag.word || tag.title || ""
+                            : tag
+                        )
+                      }
                     >
-                      {typeof tag === 'object' ? (tag.word || tag.title || '') : tag}
+                      {typeof tag === "object"
+                        ? tag.word || tag.title || ""
+                        : tag}
                       <X
                         className="w-3 h-3 cursor-pointer hover:bg-destructive/20 rounded-full"
-                        onClick={() => removeTag(typeof tag === 'object' ? (tag.word || tag.title || '') : tag)}
+                        onClick={() =>
+                          removeTag(
+                            typeof tag === "object"
+                              ? tag.word || tag.title || ""
+                              : tag
+                          )
+                        }
                       />
                     </Badge>
                   ))}
@@ -1473,9 +1470,9 @@ const UpdateBlog = () => {
                 "Save Blog"
               )}
             </Button>
-            <Button 
-              type="button" 
-              className="cursor-pointer" 
+            <Button
+              type="button"
+              className="cursor-pointer"
               disabled={!isSaved || isSaving || isPublishing || loading}
               onClick={handlePublish}
             >

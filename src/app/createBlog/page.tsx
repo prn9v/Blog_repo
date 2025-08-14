@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -84,9 +84,6 @@ interface BlogPostJSON {
 const CreateBlog = () => {
   const router = useRouter();
   const [isUploading, setIsUploading] = useState(false);
-  const contentEditorRef = useRef<HTMLTextAreaElement | null>(null);
-  const conclusionEditorRef = useRef<HTMLTextAreaElement | null>(null);
-
   const [formData, setFormData] = useState<BlogPost>({
     title: "",
     slug: "",
@@ -108,79 +105,95 @@ const CreateBlog = () => {
   const [newTag, setNewTag] = useState("");
 
   const htmlToMarkdown = useCallback((html: string): string => {
-    // Create a temporary div to parse HTML
-    const tempDiv = document.createElement('div');
+    const tempDiv = document.createElement("div");
     tempDiv.innerHTML = html;
 
-    let liCounter = 1; // Global counter for all li elements
+    let liCounter = 1;
 
-    // Function to process nodes recursively
     const processNode = (node: Node): string => {
       if (node.nodeType === Node.TEXT_NODE) {
-        return node.textContent || '';
+        return node.textContent || "";
       }
 
       if (node.nodeType === Node.ELEMENT_NODE) {
         const element = node as Element;
         const tagName = element.tagName.toLowerCase();
-        const children = Array.from(element.childNodes).map(processNode).join('');
+        const children = Array.from(element.childNodes)
+          .map(processNode)
+          .join("");
 
         switch (tagName) {
-          case 'h1': return `# ${children}\n\n`;
-          case 'h2': return `## ${children}\n\n`;
-          case 'h3': return `### ${children}\n\n`;
-          case 'h4': return `#### ${children}\n\n`;
-          case 'h5': return `##### ${children}\n\n`;
-          case 'h6': return `###### ${children}\n\n`;
-          case 'p': return `${children}\n\n`;
-          case 'br': return '\n';
-          case 'b': 
-          case 'strong': return `**${children}**`;
-          case 'i': 
-          case 'em': return `*${children}*`;
-          case 'code': return `\`${children}\``;
-          case 'pre': return `\`\`\`\n${children}\n\`\`\`\n\n`;
-          case 'blockquote': return `> ${children}\n\n`;
-          case 'ul':
-          case 'ol':
-            // Just return children without any wrapper formatting
+          case "h1":
+            return `# ${children}\n\n`;
+          case "h2":
+            return `## ${children}\n\n`;
+          case "h3":
+            return `### ${children}\n\n`;
+          case "h4":
+            return `#### ${children}\n\n`;
+          case "h5":
+            return `##### ${children}\n\n`;
+          case "h6":
+            return `###### ${children}\n\n`;
+          case "p":
+            return `${children}\n\n`;
+          case "br":
+            return "\n";
+          case "b":
+          case "strong":
+            return `**${children}**`;
+          case "i":
+          case "em":
+            return `*${children}*`;
+          case "code":
+            return `\`${children}\``;
+          case "pre":
+            return `\`\`\`\n${children}\n\`\`\`\n\n`;
+          case "blockquote":
+            return `> ${children}\n\n`;
+          case "ul":
+          case "ol":
             return children;
-          case 'li': 
-            const listItem = `${liCounter}. ${children.replace(/\n\n$/, '')}\n`;
+          case "li":
+            const listItem = `${liCounter}. ${children.replace(/\n\n$/, "")}\n`;
             liCounter++;
             return listItem;
-          case 'a':
-            const href = element.getAttribute('href');
+          case "a":
+            const href = element.getAttribute("href");
             return href ? `[${children}](${href})` : children;
-          case 'img':
-            const src = element.getAttribute('src');
-            const alt = element.getAttribute('alt') || '';
-            return src ? `![${alt}](${src})` : '';
-          case 'table':
-            // Basic table support
-            const rows = Array.from(element.querySelectorAll('tr'));
+          case "img":
+            const src = element.getAttribute("src");
+            const alt = element.getAttribute("alt") || "";
+            return src ? `![${alt}](${src})` : "";
+          case "table":
+            const rows = Array.from(element.querySelectorAll("tr"));
             if (rows.length === 0) return children;
-                      
-            let tableMarkdown = '';
+
+            let tableMarkdown = "";
             rows.forEach((row, rowIndex) => {
-              const cells = Array.from(row.querySelectorAll('td, th'));
-              const cellContents = cells.map(cell => processNode(cell).trim());
-              tableMarkdown += `| ${cellContents.join(' | ')} |\n`;
-                          
-              // Add separator after header row
+              const cells = Array.from(row.querySelectorAll("td, th"));
+              const cellContents = cells.map((cell) =>
+                processNode(cell).trim()
+              );
+              tableMarkdown += `| ${cellContents.join(" | ")} |\n`;
               if (rowIndex === 0 && cells.length > 0) {
-                tableMarkdown += `| ${cells.map(() => '---').join(' | ')} |\n`;
+                tableMarkdown += `| ${cells.map(() => "---").join(" | ")} |\n`;
               }
             });
-            return tableMarkdown + '\n';
-          case 'div':
-          case 'span':
-            // Check for specific styling
-            const style = element.getAttribute('style') || '';
-            if (style.includes('font-weight: bold') || style.includes('font-weight:bold')) {
+            return tableMarkdown + "\n";
+          case "div":
+          case "span":
+            const style = element.getAttribute("style") || "";
+            if (
+              style.includes("font-weight: bold") ||
+              style.includes("font-weight:bold")
+            ) {
               return `**${children}**`;
             }
-            if (style.includes('font-style: italic') || style.includes('font-style:italic')) {
+            if (
+              style.includes("font-style: italic") ||
+              style.includes("font-style:italic")
+            ) {
               return `*${children}*`;
             }
             return children;
@@ -189,108 +202,39 @@ const CreateBlog = () => {
         }
       }
 
-      return '';
+      return "";
     };
 
     return processNode(tempDiv).trim();
   }, []);
 
-  // Enhanced paste handler for markdown editors
-  const handlePaste = useCallback((event: ClipboardEvent, field: 'content' | 'conclusion') => {
-    const clipboardData = event.clipboardData;
-    if (!clipboardData) return;
+  const handlePaste = useCallback(
+    (
+      event: React.ClipboardEvent<HTMLDivElement>,
+      field: "content" | "conclusion"
+    ) => {
+      const clipboardData = event.clipboardData;
+      if (!clipboardData) return;
 
-    // Get HTML content if available
-    const htmlContent = clipboardData.getData('text/html');
-    const plainText = clipboardData.getData('text/plain');
+      const htmlContent = clipboardData.getData("text/html");
+      const plainText = clipboardData.getData("text/plain");
 
-    if (htmlContent && htmlContent.trim() !== '') {
-      event.preventDefault();
-      
-      // Convert HTML to Markdown
-      const markdownContent = htmlToMarkdown(htmlContent);
-      
-      // Get current cursor position
-      const textarea = field === 'content' ? contentEditorRef.current : conclusionEditorRef.current;
-      const currentValue = formData[field] || '';
-      
-      if (textarea) {
-        const startPos = textarea.selectionStart || 0;
-        const endPos = textarea.selectionEnd || 0;
-        
-        // Insert the markdown content at cursor position
-        const newValue = 
-          currentValue.substring(0, startPos) + 
-          markdownContent + 
-          currentValue.substring(endPos);
-        
-        setFormData(prev => ({
+      // Only process HTML content if it exists and is non-empty
+      if (htmlContent && htmlContent.trim() !== "") {
+        event.preventDefault(); // Prevent default paste to avoid raw HTML insertion
+        const markdownContent = htmlToMarkdown(htmlContent);
+        setFormData((prev) => ({
           ...prev,
-          [field]: newValue
-        }));
-      } else {
-        // Fallback: append to end
-        setFormData(prev => ({
-          ...prev,
-          [field]: currentValue ? `${currentValue}\n\n${markdownContent}` : markdownContent
+          [field]: prev[field]
+            ? `${prev[field]}\n\n${markdownContent}`
+            : markdownContent,
         }));
       }
-    }
-  }, [formData, htmlToMarkdown]);
-
-  // Custom MDEditor component with enhanced paste handling
-  const EnhancedMDEditor = ({ 
-    value, 
-    onChange, 
-    height, 
-    field 
-  }: { 
-    value: string; 
-    onChange: (val?: string) => void; 
-    height: number;
-    field: 'content' | 'conclusion';
-  }) => {
-    const editorRef = useRef<HTMLDivElement>(null);
-
-    const handleEditorPaste = useCallback((e: unknown) => {
-      const clipboardEvent = e as ClipboardEvent;
-      handlePaste(clipboardEvent, field);
-    }, [field]);
-
-    // Effect to assign the ref after component mounts
-    useEffect(() => {
-      if (editorRef.current) {
-        const textarea = editorRef.current.querySelector('textarea');
-        if (textarea) {
-          if (field === 'content') {
-            contentEditorRef.current = textarea;
-          } else {
-            conclusionEditorRef.current = textarea;
-          }
-        }
-      }
-    }, [field]);
-
-    return (
-      <div ref={editorRef} onPaste={handleEditorPaste}>
-        <MDEditor
-          value={value}
-          onChange={onChange}
-          height={height}
-          data-color-mode="light"
-          textareaProps={{
-            placeholder: `Enter your ${field} here... You can paste formatted content and it will be converted to Markdown automatically.`,
-            style: {
-              fontSize: '14px',
-              lineHeight: '1.6',
-              fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
-            }
-          }}
-        />
-      </div>
-    );
-  };
-
+      // If only plain text is available, the editor will handle it natively
+    },
+    [htmlToMarkdown, setFormData] // Include setFormData in dependencies
+  );
+ 
   const generateSlug = (title: string) => {
     return title
       .toLowerCase()
@@ -310,7 +254,6 @@ const CreateBlog = () => {
   };
 
   const uploadFileToAPI = async (file: File, slug: string): Promise<string> => {
-    // Validate inputs
     if (!file || !slug) {
       throw new Error("File and slug are required");
     }
@@ -369,7 +312,6 @@ const CreateBlog = () => {
       return;
     }
 
-    // Validate file size
     if (!validateFileSize(file)) {
       return;
     }
@@ -406,7 +348,6 @@ const CreateBlog = () => {
 
     const newFiles = Array.from(files);
 
-    // Validate all files before proceeding
     for (const file of newFiles) {
       if (!validateFileSize(file)) {
         return;
@@ -430,33 +371,15 @@ const CreateBlog = () => {
         .map((url, index) => `![Image ${Date.now() + index}](${url})`)
         .join("\n\n");
 
-      const editorRef = isConclusion ? conclusionEditorRef : contentEditorRef;
       const field = isConclusion ? "conclusion" : "content";
       const currentValue = formData[field] || "";
 
-      if (editorRef.current) {
-        const textarea = editorRef.current;
-        const startPos = textarea.selectionStart || currentValue.length;
-        const endPos = textarea.selectionEnd || currentValue.length;
-        const newValue =
-          currentValue.substring(0, startPos) +
-          (startPos > 0 && currentValue[startPos - 1] !== "\n" ? "\n\n" : "") +
-          imageMarkdown +
-          (currentValue[endPos] !== "\n" ? "\n\n" : "") +
-          currentValue.substring(endPos);
-
-        setFormData((prev) => ({
-          ...prev,
-          [field]: newValue,
-        }));
-      } else {
-        setFormData((prev) => ({
-          ...prev,
-          [field]: currentValue
-            ? `${currentValue}\n\n${imageMarkdown}`
-            : imageMarkdown,
-        }));
-      }
+      setFormData((prev) => ({
+        ...prev,
+        [field]: currentValue
+          ? `${currentValue}\n\n${imageMarkdown}`
+          : imageMarkdown,
+      }));
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "An unexpected error occurred";
@@ -471,15 +394,10 @@ const CreateBlog = () => {
     let currentIndex = 0;
 
     const patterns = [
-      // Bold and italic combined (***text***) - exactly 3 stars at start and end
       { regex: /(?<!\*)\*{3}([^*]+)\*{3}(?!\*)/g, type: "bold-italic" },
-      // Bold only (**text**) - exactly 2 stars at start and end
       { regex: /(?<!\*)\*{2}([^*]+)\*{2}(?!\*)/g, type: "bold" },
-      // Italic only (*text*) - exactly 1 star at start and end
       { regex: /(?<!\*)\*{1}([^*]+)\*{1}(?!\*)/g, type: "italic" },
-      // Code (`text`)
       { regex: /`([^`]+)`/g, type: "code" },
-      // Links ([text](url))
       { regex: /\[([^\]]+)\]\(([^)]+)\)/g, type: "link" },
     ];
 
@@ -780,16 +698,14 @@ const CreateBlog = () => {
     return blocks;
   };
 
-  // Updated keyword handling with comma-separated support
   const addKeywords = () => {
     const trimmed = newKeyword.trim();
     if (trimmed) {
-      // Split by comma and process each keyword
       const newKeywords = trimmed
-        .split(',')
-        .map(keyword => keyword.trim())
-        .filter(keyword => keyword && !formData.keywords.includes(keyword));
-      
+        .split(",")
+        .map((keyword) => keyword.trim())
+        .filter((keyword) => keyword && !formData.keywords.includes(keyword));
+
       if (newKeywords.length > 0) {
         setFormData((prev) => ({
           ...prev,
@@ -807,16 +723,14 @@ const CreateBlog = () => {
     }));
   };
 
-  // Updated tag handling with comma-separated support
   const addTags = () => {
     const trimmed = newTag.trim();
     if (trimmed) {
-      // Split by comma and process each tag
       const newTags = trimmed
-        .split(',')
-        .map(tag => tag.trim())
-        .filter(tag => tag && !formData.tags.includes(tag));
-      
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter((tag) => tag && !formData.tags.includes(tag));
+
       if (newTags.length > 0) {
         setFormData((prev) => ({
           ...prev,
@@ -860,7 +774,7 @@ const CreateBlog = () => {
         readTime: formData.readTime,
         excerpt: formData.excerpt,
         coverImageUrl: formData.coverImageUrl,
-        BlogType: "INFIGON", // Set to INFIGON as requested
+        BlogType: "INFIGON",
         sourceUrl: "https://www.infigonfutures.com/blogs",
         keywords: formData.keywords,
         tags: formData.tags,
@@ -900,8 +814,6 @@ const CreateBlog = () => {
       setIsUploading(false);
     }
   };
-
-  
 
   return (
     <div className="min-h-screen bg-muted/20 py-10">
@@ -993,20 +905,26 @@ const CreateBlog = () => {
             <CardHeader>
               <CardTitle>Content</CardTitle>
               <CardDescription>
-                Write your blog in Markdown. Copy and paste formatted content from any source - it will automatically preserve formatting including bold text, headings, spacing, and line breaks.
+                Write your blog in Markdown. Copy and paste formatted content
+                from any source - it will automatically preserve formatting
+                including bold text, headings, spacing, and line breaks.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
                 <Label>Main Content *</Label>
                 <div className="border rounded-md">
-                  <EnhancedMDEditor
+                  <MDEditor
                     value={formData.content}
                     onChange={(v) =>
                       setFormData((p) => ({ ...p, content: v || "" }))
                     }
                     height={400}
-                    field="content"
+                    data-color-mode="light"
+                    onPaste={(e) => handlePaste(e, "content")}
+                    textareaProps={{
+                      placeholder: `Enter your content here... You can paste formatted content and it will be converted to Markdown automatically.`,
+                    }}
                   />
                 </div>
                 <div className="mt-2">
@@ -1025,16 +943,21 @@ const CreateBlog = () => {
                   )}
                 </div>
               </div>
+
               <div>
                 <Label>Conclusion (Optional)</Label>
                 <div className="border rounded-md">
-                  <EnhancedMDEditor
+                  <MDEditor
                     value={formData.conclusion}
                     onChange={(v) =>
                       setFormData((p) => ({ ...p, conclusion: v || "" }))
                     }
                     height={400}
-                    field="conclusion"
+                    data-color-mode="light"
+                    onPaste={(e) => handlePaste(e, "conclusion")}
+                    textareaProps={{
+                      placeholder: `Enter your conclusion here... You can paste formatted conclusion and it will be converted to Markdown automatically.`,
+                    }}
                   />
                 </div>
                 <div className="mt-2">
@@ -1141,7 +1064,8 @@ const CreateBlog = () => {
               <div>
                 <Label>Keywords</Label>
                 <p className="text-xs text-muted-foreground mb-2">
-                  Enter keywords separated by commas (e.g., react, javascript, web development)
+                  Enter keywords separated by commas (e.g., react, javascript,
+                  web development)
                 </p>
                 <div className="flex gap-2">
                   <Input
@@ -1179,7 +1103,8 @@ const CreateBlog = () => {
               <div>
                 <Label>Tags</Label>
                 <p className="text-xs text-muted-foreground mb-2">
-                  Enter tags separated by commas (e.g., tutorial, beginner, advanced)
+                  Enter tags separated by commas (e.g., tutorial, beginner,
+                  advanced)
                 </p>
                 <div className="flex gap-2">
                   <Input
@@ -1226,7 +1151,11 @@ const CreateBlog = () => {
             >
               Cancel
             </Button>
-            <Button type="submit" className=" cursor-pointer" disabled={isUploading}>
+            <Button
+              type="submit"
+              className="cursor-pointer"
+              disabled={isUploading}
+            >
               {isUploading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -1236,7 +1165,6 @@ const CreateBlog = () => {
                 "Create Blog Post"
               )}
             </Button>
-            
           </div>
         </form>
       </div>
