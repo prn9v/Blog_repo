@@ -234,7 +234,7 @@ const SingleBlog = () => {
   useEffect(() => {
     const fetchBlog = async () => {
       try {
-        const res = await fetch(`https://staging.api.infigon.app/v1/blogs/${params.id}`);
+        const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/v1/blogs/${params.id}`);
         if (!res.ok) throw new Error("Failed to fetch blog");
         const data: Blog = await res.json();
         setBlog(data);
@@ -271,7 +271,7 @@ const SingleBlog = () => {
       setIsPublishing(true);
 
       const publishResponse = await fetch(
-        `https://staging.api.infigon.app/v1/teams/blogs/publish/${params.id}`,
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/v1/teams/blogs/publish/${params.id}`,
         {
           method: "PATCH",
           headers: {

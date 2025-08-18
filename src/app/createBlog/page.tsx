@@ -264,7 +264,7 @@ const CreateBlog = () => {
 
     try {
       const response = await fetch(
-        "https://staging.api.infigon.app/v1/teams/util/upload-file",
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/v1/teams/util/upload-file`,
         {
           method: "POST",
           headers: {
@@ -784,7 +784,7 @@ const CreateBlog = () => {
       };
 
       const response = await fetch(
-        "https://staging.api.infigon.app/v1/teams/blogs",
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/v1/teams/blogs`,
         {
           method: "POST",
           headers: {

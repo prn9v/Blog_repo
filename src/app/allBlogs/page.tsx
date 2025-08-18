@@ -45,7 +45,7 @@ const AllBlogs = () => {
     const fetchBlogs = async () => {
       try {
         const response = await fetch(
-          "https://staging.api.infigon.app/v1/blogs",
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/v1/blogs`,
           {
             method: "GET",
           }

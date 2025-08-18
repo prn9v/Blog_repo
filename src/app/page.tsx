@@ -25,7 +25,7 @@ const Login = () => {
     if (formData.email && formData.password) {
       try {
         const response = await fetch(
-          "https://staging.api.infigon.app/v1/teams/auth/login",
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/v1/teams/auth/login`,
           {
             method: "POST",
             headers: {

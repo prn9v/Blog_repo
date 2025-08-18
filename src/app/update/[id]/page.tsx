@@ -123,7 +123,7 @@ const UpdateBlog = () => {
       try {
         setLoading(true);
         const response = await fetch(
-          `https://staging.api.infigon.app/v1/teams/blogs/${params.id}`,
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/v1/teams/blogs/${params.id}`,
           {
             credentials: "include",
           }
@@ -418,7 +418,7 @@ const UpdateBlog = () => {
 
     try {
       const response = await fetch(
-        "https://staging.api.infigon.app/v1/teams/util/upload-file",
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/v1/teams/util/upload-file`,
         {
           method: "POST",
           headers: {
@@ -974,7 +974,7 @@ const UpdateBlog = () => {
       console.log("Stringified JSON:", JSON.stringify(changedFields, null, 2));
 
       const response = await fetch(
-        `https://staging.api.infigon.app/v1/teams/blogs/${params.id}`,
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/v1/teams/blogs/${params.id}`,
         {
           method: "PATCH",
           headers: {
@@ -1057,7 +1057,7 @@ const UpdateBlog = () => {
       setIsPublishing(true);
 
       const publishResponse = await fetch(
-        `https://staging.api.infigon.app/v1/teams/blogs/publish/${params.id}`,
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/v1/teams/blogs/publish/${params.id}`,
         {
           method: "PATCH",
           headers: {
