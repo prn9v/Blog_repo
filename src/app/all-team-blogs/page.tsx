@@ -73,7 +73,7 @@ const AllTeamBlogs = () => {
         setError(null);
         
         const response = await fetch(
-          "https://staging.api.infigon.app/v1/teams/blogs",
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/v1/teams/blogs`,
           {
             method: "GET",
             headers: {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -217,7 +217,6 @@ const CreateBlog = () => {
       if (!clipboardData) return;
 
       const htmlContent = clipboardData.getData("text/html");
-      const plainText = clipboardData.getData("text/plain");
 
       // Only process HTML content if it exists and is non-empty
       if (htmlContent && htmlContent.trim() !== "") {
@@ -264,7 +263,7 @@ const CreateBlog = () => {
 
     try {
       const response = await fetch(
-        "https://staging.api.infigon.app/v1/teams/util/upload-file",
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/v1/teams/util/upload-file`,
         {
           method: "POST",
           headers: {
@@ -784,7 +783,7 @@ const CreateBlog = () => {
       };
 
       const response = await fetch(
-        "https://staging.api.infigon.app/v1/teams/blogs",
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/v1/teams/blogs`,
         {
           method: "POST",
           headers: {
