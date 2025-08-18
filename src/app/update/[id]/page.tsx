@@ -16,6 +16,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { PlusCircle, X, ArrowLeft, FileText, Loader2 } from "lucide-react";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 
 // Dynamically import to avoid SSR issues
 const MDEditor = dynamic(() => import("@uiw/react-md-editor"), { ssr: false });
@@ -370,7 +371,6 @@ const UpdateBlog = () => {
       if (!clipboardData) return;
 
       const htmlContent = clipboardData.getData("text/html");
-      const plainText = clipboardData.getData("text/plain");
 
       // Only process HTML content if it exists and is non-empty
       if (htmlContent && htmlContent.trim() !== "") {
@@ -970,8 +970,6 @@ const UpdateBlog = () => {
         return;
       }
 
-      console.log("Changed fields:", changedFields);
-      console.log("Stringified JSON:", JSON.stringify(changedFields, null, 2));
 
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_BACKEND_URL}/v1/teams/blogs/${params.id}`,
@@ -984,9 +982,6 @@ const UpdateBlog = () => {
           body: JSON.stringify(changedFields),
         }
       );
-
-      console.log("API Response status:", response.status);
-      console.log("API Response:", response);
 
       if (!response.ok) {
         let errorData;
@@ -1302,7 +1297,9 @@ const UpdateBlog = () => {
                 <div className="mt-4">
                   <Label>Cover Image Preview</Label>
                   <div className="mt-2 border rounded-lg overflow-hidden">
-                    <img
+                    <Image
+                     width={400}
+                     height={300}
                       src={formData.coverImageUrl}
                       alt={formData.coverImageAlt}
                       className="w-full h-48 object-cover"

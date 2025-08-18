@@ -228,8 +228,8 @@ const SingleBlog = () => {
   const router = useRouter();
   const [blog, setBlog] = useState<Blog | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tocItems, setTocItems] = useState<TocItem[]>([]);
   const [isPublishing, setIsPublishing] = useState(false);
+  console.log("blog: ",blog);
 
   useEffect(() => {
     const fetchBlog = async () => {
