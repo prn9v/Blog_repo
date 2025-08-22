@@ -244,10 +244,6 @@ const UpdateBlog = () => {
       changes.tags = current.tags;
     }
 
-    if (!arraysEqual(original.imageUrls, current.imageUrls)) {
-      changes.imageUrls = current.imageUrls;
-    }
-
     return changes;
   };
 
@@ -407,13 +403,18 @@ const UpdateBlog = () => {
   };
 
   const uploadFileToAPI = async (file: File, slug: string): Promise<string> => {
-    // Validate inputs
     if (!file || !slug) {
       throw new Error("File and slug are required");
     }
 
+    // Normalize the filename before uploading
+    const normalizedFile = normalizeFilename(file);
+    console.log(
+      `Original filename: ${file.name}, Normalized filename: ${normalizedFile.name}`
+    );
+
     const formDataUpload = new FormData();
-    formDataUpload.append("file", file);
+    formDataUpload.append("file", normalizedFile); // Use normalized file
     formDataUpload.append("folderName", `/blog/${slug}`);
 
     try {
@@ -444,17 +445,30 @@ const UpdateBlog = () => {
       throw error;
     }
   };
+  const normalizeFilename = (file: File): File => {
+    // Get file extension
+    const extension = file.name.split(".").pop() || "";
+    // Get filename without extension
+    const nameWithoutExtension =
+      file.name.substring(0, file.name.lastIndexOf(".")) || file.name;
 
-  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB in bytes
+    // Remove spaces and convert to lowercase
+    const normalizedName = nameWithoutExtension
+      .replace(/\s+/g, "") // Remove all spaces
+      .toLowerCase(); // Convert to lowercase
 
-  const validateFileSize = (file: File): boolean => {
-    if (file.size > MAX_FILE_SIZE) {
-      alert(
-        `File "${file.name}" exceeds the maximum size limit of 5MB. Please choose a smaller file.`
-      );
-      return false;
-    }
-    return true;
+    // Create new filename
+    const newFilename = extension
+      ? `${normalizedName}.${extension.toLowerCase()}`
+      : normalizedName;
+
+    // Create a new File object with the normalized name
+    const normalizedFile = new File([file], newFilename, {
+      type: file.type,
+      lastModified: file.lastModified,
+    });
+
+    return normalizedFile;
   };
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -466,13 +480,13 @@ const UpdateBlog = () => {
       return;
     }
 
-    // Validate file size
     if (!validateFileSize(file)) {
       return;
     }
 
     setIsUploading(true);
     try {
+      // File will be normalized inside uploadFileToAPI
       const uploadedUrl = await uploadFileToAPI(file, formData.slug);
       setFormData((prev) => ({
         ...prev,
@@ -480,6 +494,9 @@ const UpdateBlog = () => {
         coverImageUrl: uploadedUrl,
         imageUrls: [...prev.imageUrls, uploadedUrl],
       }));
+      console.log(
+        `Cover image uploaded with normalized filename: ${uploadedUrl}`
+      );
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "An unexpected error occurred";
@@ -503,7 +520,6 @@ const UpdateBlog = () => {
 
     const newFiles = Array.from(files);
 
-    // Validate all files before proceeding
     for (const file of newFiles) {
       if (!validateFileSize(file)) {
         return;
@@ -515,45 +531,31 @@ const UpdateBlog = () => {
       const uploadedUrls: string[] = [];
 
       for (const file of newFiles) {
+        // File will be normalized inside uploadFileToAPI
         const uploadedUrl = await uploadFileToAPI(file, formData.slug);
         uploadedUrls.push(uploadedUrl);
         setFormData((prev) => ({
           ...prev,
           imageUrls: [...prev.imageUrls, uploadedUrl],
         }));
+        console.log(
+          `Content image uploaded with normalized filename: ${uploadedUrl}`
+        );
       }
 
       const imageMarkdown = uploadedUrls
         .map((url, index) => `![Image ${Date.now() + index}](${url})`)
         .join("\n\n");
 
-      const editorRef = isConclusion ? conclusionEditorRef : contentEditorRef;
       const field = isConclusion ? "conclusion" : "content";
       const currentValue = formData[field] || "";
 
-      if (editorRef.current) {
-        const textarea = editorRef.current;
-        const startPos = textarea.selectionStart || currentValue.length;
-        const endPos = textarea.selectionEnd || currentValue.length;
-        const newValue =
-          currentValue.substring(0, startPos) +
-          (startPos > 0 && currentValue[startPos - 1] !== "\n" ? "\n\n" : "") +
-          imageMarkdown +
-          (currentValue[endPos] !== "\n" ? "\n\n" : "") +
-          currentValue.substring(endPos);
-
-        setFormData((prev) => ({
-          ...prev,
-          [field]: newValue,
-        }));
-      } else {
-        setFormData((prev) => ({
-          ...prev,
-          [field]: currentValue
-            ? `${currentValue}\n\n${imageMarkdown}`
-            : imageMarkdown,
-        }));
-      }
+      setFormData((prev) => ({
+        ...prev,
+        [field]: currentValue
+          ? `${currentValue}\n\n${imageMarkdown}`
+          : imageMarkdown,
+      }));
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "An unexpected error occurred";
@@ -562,6 +564,19 @@ const UpdateBlog = () => {
       setIsUploading(false);
     }
   };
+
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB in bytes
+
+  const validateFileSize = (file: File): boolean => {
+    if (file.size > MAX_FILE_SIZE) {
+      alert(
+        `File "${file.name}" exceeds the maximum size limit of 5MB. Please choose a smaller file.`
+      );
+      return false;
+    }
+    return true;
+  };
+
 
   const parseFormattedText = (text: string): FormattedText[] => {
     const parts: FormattedText[] = [];

@@ -233,7 +233,7 @@ const CreateBlog = () => {
     },
     [htmlToMarkdown, setFormData] // Include setFormData in dependencies
   );
- 
+
   const generateSlug = (title: string) => {
     return title
       .toLowerCase()
@@ -257,8 +257,14 @@ const CreateBlog = () => {
       throw new Error("File and slug are required");
     }
 
+    // Normalize the filename before uploading
+    const normalizedFile = normalizeFilename(file);
+    console.log(
+      `Original filename: ${file.name}, Normalized filename: ${normalizedFile.name}`
+    );
+
     const formDataUpload = new FormData();
-    formDataUpload.append("file", file);
+    formDataUpload.append("file", normalizedFile); // Use normalized file
     formDataUpload.append("folderName", `/blog/${slug}`);
 
     try {
@@ -302,6 +308,33 @@ const CreateBlog = () => {
     return true;
   };
 
+  // Helper function to normalize filename
+  const normalizeFilename = (file: File): File => {
+    // Get file extension
+    const extension = file.name.split(".").pop() || "";
+    // Get filename without extension
+    const nameWithoutExtension =
+      file.name.substring(0, file.name.lastIndexOf(".")) || file.name;
+
+    // Remove spaces and convert to lowercase
+    const normalizedName = nameWithoutExtension
+      .replace(/\s+/g, "") // Remove all spaces
+      .toLowerCase(); // Convert to lowercase
+
+    // Create new filename
+    const newFilename = extension
+      ? `${normalizedName}.${extension.toLowerCase()}`
+      : normalizedName;
+
+    // Create a new File object with the normalized name
+    const normalizedFile = new File([file], newFilename, {
+      type: file.type,
+      lastModified: file.lastModified,
+    });
+
+    return normalizedFile;
+  };
+
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !formData.slug) {
@@ -317,6 +350,7 @@ const CreateBlog = () => {
 
     setIsUploading(true);
     try {
+      // File will be normalized inside uploadFileToAPI
       const uploadedUrl = await uploadFileToAPI(file, formData.slug);
       setFormData((prev) => ({
         ...prev,
@@ -324,6 +358,9 @@ const CreateBlog = () => {
         coverImageUrl: uploadedUrl,
         imageUrls: [...prev.imageUrls, uploadedUrl],
       }));
+      console.log(
+        `Cover image uploaded with normalized filename: ${uploadedUrl}`
+      );
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "An unexpected error occurred";
@@ -358,12 +395,16 @@ const CreateBlog = () => {
       const uploadedUrls: string[] = [];
 
       for (const file of newFiles) {
+        // File will be normalized inside uploadFileToAPI
         const uploadedUrl = await uploadFileToAPI(file, formData.slug);
         uploadedUrls.push(uploadedUrl);
         setFormData((prev) => ({
           ...prev,
           imageUrls: [...prev.imageUrls, uploadedUrl],
         }));
+        console.log(
+          `Content image uploaded with normalized filename: ${uploadedUrl}`
+        );
       }
 
       const imageMarkdown = uploadedUrls
