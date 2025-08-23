@@ -188,64 +188,71 @@ const UpdateBlog = () => {
   };
 
   // Helper function to get changed fields
-  const getChangedFields = (original: BlogPost, current: BlogPost) => {
-    const changes: Partial<BlogPostJSON> = {};
+  // Helper function to get changed fields
+const getChangedFields = (original: BlogPost, current: BlogPost) => {
+  const changes: Partial<BlogPostJSON> = {};
 
-    // Compare each field
-    if (original.title !== current.title) {
-      changes.title = current.title;
+  // Compare each field
+  if (original.title !== current.title) {
+    changes.title = current.title;
+  }
+
+  if (original.slug !== current.slug) {
+    changes.slug = current.slug;
+  }
+
+  if (original.content !== current.content) {
+    changes.content = parseContentToJSON(current.content);
+  }
+
+  if (original.conclusion !== current.conclusion) {
+    if (current.conclusion) {
+      changes.conclusion = parseContentToJSON(current.conclusion);
+    } else {
+      changes.conclusion = undefined;
     }
+  }
 
-    if (original.slug !== current.slug) {
-      changes.slug = current.slug;
-    }
+  if (original.readTime !== current.readTime) {
+    changes.readTime = current.readTime;
+  }
 
-    if (original.content !== current.content) {
-      changes.content = parseContentToJSON(current.content);
-    }
+  if (original.excerpt !== current.excerpt) {
+    changes.excerpt = current.excerpt;
+  }
 
-    if (original.conclusion !== current.conclusion) {
-      if (current.conclusion) {
-        changes.conclusion = parseContentToJSON(current.conclusion);
-      } else {
-        changes.conclusion = undefined;
-      }
-    }
+  if (original.coverImageUrl !== current.coverImageUrl) {
+    changes.coverImageUrl = current.coverImageUrl;
+  }
 
-    if (original.readTime !== current.readTime) {
-      changes.readTime = current.readTime;
-    }
 
-    if (original.excerpt !== current.excerpt) {
-      changes.excerpt = current.excerpt;
-    }
+  if (original.sourceUrl !== current.sourceUrl) {
+    changes.sourceUrl = current.sourceUrl;
+  }
 
-    if (original.coverImageUrl !== current.coverImageUrl) {
-      changes.coverImageUrl = current.coverImageUrl;
-    }
+  if (!arraysEqual(original.keywords, current.keywords)) {
+    changes.keywords = current.keywords;
+  }
 
-    if (original.sourceUrl !== current.sourceUrl) {
-      changes.sourceUrl = current.sourceUrl;
-    }
+  if (original.seoTitle !== current.seoTitle) {
+    changes.seoTitle = current.seoTitle;
+  }
 
-    if (!arraysEqual(original.keywords, current.keywords)) {
-      changes.keywords = current.keywords;
-    }
+  if (original.seoDescription !== current.seoDescription) {
+    changes.seoDescription = current.seoDescription;
+  }
 
-    if (original.seoTitle !== current.seoTitle) {
-      changes.seoTitle = current.seoTitle;
-    }
+  if (!arraysEqual(original.tags, current.tags)) {
+    changes.tags = current.tags;
+  }
 
-    if (original.seoDescription !== current.seoDescription) {
-      changes.seoDescription = current.seoDescription;
-    }
+  // ADD IMAGE URLS COMPARISON (was also missing)
+  if (!arraysEqual(original.imageUrls, current.imageUrls)) {
+    changes.imageUrls = current.imageUrls;
+  }
 
-    if (!arraysEqual(original.tags, current.tags)) {
-      changes.tags = current.tags;
-    }
-
-    return changes;
-  };
+  return changes;
+};
 
   const htmlToMarkdown = useCallback((html: string): string => {
     // Create a temporary div to parse HTML

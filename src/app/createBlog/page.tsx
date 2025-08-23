@@ -791,12 +791,18 @@ const CreateBlog = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.title || !formData.content || !formData.coverImageAlt) {
-      alert(
-        "Please fill in all required fields (Title, Content, and Cover Image Alt)."
-      );
-      return;
-    }
+    if (
+  !formData.title?.trim() ||
+  !formData.content?.trim() ||
+  !formData.coverImageAlt?.trim() ||
+  !formData.excerpt?.trim() ||
+  !formData.coverImageUrl?.trim() ||
+  !formData.seoDescription?.trim() ||
+  !formData.seoTitle?.trim()
+) {
+  alert("Please fill in all required fields");
+  return;
+}
 
     try {
       setIsUploading(true);
@@ -811,7 +817,7 @@ const CreateBlog = () => {
         slug: formData.slug,
         content: parsedContent,
         conclusion: parsedConclusion,
-        readTime: formData.readTime,
+        readTime: formData.readTime || 5,
         excerpt: formData.excerpt,
         coverImageUrl: formData.coverImageUrl,
         BlogType: "INFIGON",
