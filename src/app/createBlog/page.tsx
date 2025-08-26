@@ -760,16 +760,8 @@ const CreateBlog = () => {
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault()
 
-		if (
-			!formData.title?.trim() ||
-			!formData.content?.trim() ||
-			!formData.coverImageAlt?.trim() ||
-			!formData.excerpt?.trim() ||
-			!formData.coverImageUrl?.trim() ||
-			!formData.seoDescription?.trim() ||
-			!formData.seoTitle?.trim()
-		) {
-			alert('Please fill in all required fields')
+		if (!formData.title || !formData.content || !formData.coverImageAlt) {
+			alert('Please fill in all required fields (Title, Content, and Cover Image Alt).')
 			return
 		}
 
