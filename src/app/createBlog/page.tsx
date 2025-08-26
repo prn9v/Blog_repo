@@ -479,6 +479,9 @@ const CreateBlog = () => {
 			const line = lines[i]
 			const trimmedLine = line.trim()
 
+			// Helper to detect table separator line (e.g., |----|-----|)
+			const isTableSeparator = (line: string) => /^(\s*\|?(\s*:?-+:?\s*)+\|?\s*)$/.test(line.trim())
+
 			const codeBlockMatch = trimmedLine.match(/^```(\w+)?$/)
 			if (codeBlockMatch) {
 				if (!inCodeBlock) {
@@ -566,8 +569,15 @@ const CreateBlog = () => {
 				continue
 			}
 
-			if (trimmedLine.includes('|') && !trimmedLine.match(/^[\s\-\|]+$/)) {
+			// && !trimmedLine.match(/^[\s\-\|]+$/)
+			if (trimmedLine.includes('|')) {
 				if (!inTable) {
+					// Already in a table, add rows
+					// Skip if the line is a separator line
+					if (isTableSeparator(trimmedLine)) {
+						// separators are handled once after header row, skip here
+						continue
+					}
 					if (currentBlock) {
 						blocks.push(currentBlock)
 						currentBlock = null
