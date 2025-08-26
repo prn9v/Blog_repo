@@ -614,231 +614,6 @@ const UpdateBlog = () => {
 		return parts.length > 0 ? parts : [{ text }]
 	}
 
-	// const parseContentToJSON = (markdownContent: string): ContentBlock[] => {
-	// 	if (!markdownContent) return []
-
-	// 	const blocks: ContentBlock[] = []
-	// 	const lines = markdownContent.split('\n')
-	// 	let currentBlock: ContentBlock | null = null
-	// 	let tableRows: string[][] = []
-	// 	let inTable = false
-	// 	let inCodeBlock = false
-	// 	let codeContent = ''
-	// 	let codeLanguage = ''
-	// 	let listItems: string[] = []
-	// 	let inList = false
-
-	// 	for (let i = 0; i < lines.length; i++) {
-	// 		const line = lines[i]
-	// 		const trimmedLine = line.trim()
-
-	// 		const codeBlockMatch = trimmedLine.match(/^```(\w+)?$/)
-	// 		if (codeBlockMatch) {
-	// 			if (!inCodeBlock) {
-	// 				if (currentBlock) {
-	// 					blocks.push(currentBlock)
-	// 					currentBlock = null
-	// 				}
-	// 				inCodeBlock = true
-	// 				codeLanguage = codeBlockMatch[1] || ''
-	// 				codeContent = ''
-	// 			} else {
-	// 				blocks.push({
-	// 					type: 'code',
-	// 					rawContent: '```' + codeLanguage + '\n' + codeContent + '\n```',
-	// 					text: codeContent,
-	// 					language: codeLanguage
-	// 				})
-	// 				inCodeBlock = false
-	// 				codeContent = ''
-	// 				codeLanguage = ''
-	// 			}
-	// 			continue
-	// 		}
-
-	// 		if (inCodeBlock) {
-	// 			codeContent += (codeContent ? '\n' : '') + line
-	// 			continue
-	// 		}
-
-	// 		if (!trimmedLine && !currentBlock && !inList && !inTable) continue
-
-	// 		const blockquoteMatch = trimmedLine.match(/^>\s*(.+)/)
-	// 		if (blockquoteMatch) {
-	// 			if (currentBlock) {
-	// 				blocks.push(currentBlock)
-	// 				currentBlock = null
-	// 			}
-	// 			if (inList) {
-	// 				blocks.push({
-	// 					type: 'list',
-	// 					items: listItems,
-	// 					rawContent: listItems.map((item) => `- ${item}`).join('\n')
-	// 				})
-	// 				listItems = []
-	// 				inList = false
-	// 			}
-	// 			blocks.push({
-	// 				type: 'blockquote',
-	// 				text: blockquoteMatch[1],
-	// 				rawContent: trimmedLine,
-	// 				formattedContent: parseFormattedText(blockquoteMatch[1])
-	// 			})
-	// 			continue
-	// 		}
-
-	// 		const imageMatch = trimmedLine.match(/!\[([^\]]*)\]\(([^)]+)\)/)
-	// 		if (imageMatch) {
-	// 			if (currentBlock) {
-	// 				blocks.push(currentBlock)
-	// 				currentBlock = null
-	// 			}
-	// 			if (inList) {
-	// 				blocks.push({
-	// 					type: 'list',
-	// 					items: listItems,
-	// 					rawContent: listItems.map((item) => `- ${item}`).join('\n')
-	// 				})
-	// 				listItems = []
-	// 				inList = false
-	// 			}
-	// 			blocks.push({
-	// 				type: 'image',
-	// 				alt: imageMatch[1],
-	// 				src: imageMatch[2],
-	// 				rawContent: trimmedLine
-	// 			})
-	// 			continue
-	// 		}
-
-	// 		if (trimmedLine.includes('|') && !trimmedLine.match(/^[\s\-\|]+$/)) {
-	// 			if (!inTable) {
-	// 				if (currentBlock) {
-	// 					blocks.push(currentBlock)
-	// 					currentBlock = null
-	// 				}
-	// 				if (inList) {
-	// 					blocks.push({
-	// 						type: 'list',
-	// 						items: listItems,
-	// 						rawContent: listItems.map((item) => `- ${item}`).join('\n')
-	// 					})
-	// 					listItems = []
-	// 					inList = false
-	// 				}
-	// 				inTable = true
-	// 				tableRows = []
-	// 			}
-
-	// 			const cells = trimmedLine
-	// 				.split('|')
-	// 				.map((cell) => cell.trim())
-	// 				.filter((cell) => cell)
-	// 			if (cells.length > 0) {
-	// 				tableRows.push(cells)
-	// 			}
-	// 			continue
-	// 		} else if (inTable) {
-	// 			if (tableRows.length > 0) {
-	// 				const tableMarkdown = tableRows.map((row) => `| ${row.join(' | ')} |`).join('\n')
-	// 				blocks.push({
-	// 					type: 'table',
-	// 					headers: tableRows[0] || [],
-	// 					rows: tableRows.slice(1) || [],
-	// 					rawContent: tableMarkdown
-	// 				})
-	// 			}
-	// 			inTable = false
-	// 			tableRows = []
-	// 		}
-
-	// 		const listMatch = trimmedLine.match(/^[-*+]\s+(.+)/)
-	// 		if (listMatch) {
-	// 			if (currentBlock) {
-	// 				blocks.push(currentBlock)
-	// 				currentBlock = null
-	// 			}
-	// 			if (!inList) {
-	// 				inList = true
-	// 				listItems = []
-	// 			}
-	// 			listItems.push(listMatch[1])
-	// 			continue
-	// 		} else if (inList && trimmedLine) {
-	// 			if (listItems.length > 0) {
-	// 				listItems[listItems.length - 1] += ' ' + trimmedLine
-	// 			}
-	// 			continue
-	// 		} else if (inList) {
-	// 			blocks.push({
-	// 				type: 'list',
-	// 				items: listItems,
-	// 				rawContent: listItems.map((item) => `- ${item}`).join('\n')
-	// 			})
-	// 			listItems = []
-	// 			inList = false
-	// 		}
-
-	// 		const headingMatch = trimmedLine.match(/^(#{1,6})\s+(.+)/)
-	// 		if (headingMatch) {
-	// 			if (currentBlock) {
-	// 				blocks.push(currentBlock)
-	// 				currentBlock = null
-	// 			}
-	// 			blocks.push({
-	// 				type: 'heading',
-	// 				level: headingMatch[1].length,
-	// 				text: headingMatch[2],
-	// 				rawContent: trimmedLine,
-	// 				formattedContent: parseFormattedText(headingMatch[2])
-	// 			})
-	// 			continue
-	// 		}
-
-	// 		if (trimmedLine) {
-	// 			if (!currentBlock) {
-	// 				currentBlock = {
-	// 					type: 'text',
-	// 					text: trimmedLine,
-	// 					rawContent: trimmedLine,
-	// 					formattedContent: parseFormattedText(trimmedLine)
-	// 				}
-	// 			} else {
-	// 				currentBlock.text += '\n' + trimmedLine
-	// 				currentBlock.rawContent += '\n' + trimmedLine
-	// 				currentBlock.formattedContent = parseFormattedText(currentBlock.text!)
-	// 			}
-	// 		} else if (currentBlock) {
-	// 			blocks.push(currentBlock)
-	// 			currentBlock = null
-	// 		}
-	// 	}
-
-	// 	if (currentBlock) {
-	// 		blocks.push(currentBlock)
-	// 	}
-
-	// 	if (inTable && tableRows.length > 0) {
-	// 		const tableMarkdown = tableRows.map((row) => `| ${row.join(' | ')} |`).join('\n')
-	// 		blocks.push({
-	// 			type: 'table',
-	// 			headers: tableRows[0] || [],
-	// 			rows: tableRows.slice(1) || [],
-	// 			rawContent: tableMarkdown
-	// 		})
-	// 	}
-
-	// 	if (inList && listItems.length > 0) {
-	// 		blocks.push({
-	// 			type: 'list',
-	// 			items: listItems,
-	// 			rawContent: listItems.map((item) => `- ${item}`).join('\n')
-	// 		})
-	// 	}
-
-	// 	return blocks
-	// }
-
 	const parseContentToJSON = (markdownContent: string): ContentBlock[] => {
 		if (!markdownContent) return []
 
@@ -857,6 +632,9 @@ const UpdateBlog = () => {
 		for (let i = 0; i < lines.length; i++) {
 			const line = lines[i]
 			const trimmedLine = line.trim()
+
+			// Helper to detect table separator line (e.g., |----|-----|)
+			const isTableSeparator = (line: string) => /^(\s*\|?(\s*:?-+:?\s*)+\|?\s*)$/.test(line.trim())
 
 			const codeBlockMatch = trimmedLine.match(/^```(\w+)?$/)
 			if (codeBlockMatch) {
@@ -945,8 +723,15 @@ const UpdateBlog = () => {
 				continue
 			}
 
-			if (trimmedLine.includes('|') && !trimmedLine.match(/^[\s\-\|]+$/)) {
+			// && !trimmedLine.match(/^[\s\-\|]+$/)
+			if (trimmedLine.includes('|')) {
 				if (!inTable) {
+					// Already in a table, add rows
+					// Skip if the line is a separator line
+					if (isTableSeparator(trimmedLine)) {
+						// separators are handled once after header row, skip here
+						continue
+					}
 					if (currentBlock) {
 						blocks.push(currentBlock)
 						currentBlock = null
