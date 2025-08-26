@@ -98,7 +98,15 @@ const AllTeamBlogs = () => {
         
         // Handle different response structures
         const blogsArray = data.blogs || data || [];
-        setBlogs(Array.isArray(blogsArray) ? blogsArray : []);
+        const sortedBlogs = (Array.isArray(blogsArray) ? blogsArray : []).sort(
+          (a, b) => {
+            const dateA = new Date(b.updatedAt || b.createdAt || 0).getTime();
+            const dateB = new Date(a.updatedAt || a.createdAt || 0).getTime();
+            return dateA - dateB; 
+          }
+        );
+
+        setBlogs(sortedBlogs);
         
       } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : "Failed to fetch blogs";
@@ -142,13 +150,13 @@ const AllTeamBlogs = () => {
           <div className="flex items-center gap-4 mb-8">
             <Button
               variant="ghost"
-              onClick={() => router.push("/")}
+              onClick={() => router.push("/dashboard")}
               className="flex items-center gap-2"
             >
               <ArrowLeft className="h-4 w-4" />
               Back to Home
             </Button>
-            <h1 className="text-4xl font-bold">All Blogs</h1>
+            <h1 className="text-4xl font-bold">All Teams Blogs</h1>
           </div>
           
           <div className="flex items-center justify-center min-h-[400px]">
@@ -172,14 +180,14 @@ const AllTeamBlogs = () => {
         <div className="flex items-center gap-4 mb-8">
           <Button
             variant="ghost"
-            onClick={() => router.push("/")}
+            onClick={() => router.push("/dashboard")}
             className="flex items-center gap-2"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to Home
           </Button>
           <div>
-            <h1 className="text-4xl font-bold">All Blogs</h1>
+            <h1 className="text-4xl font-bold">All Teams Blogs</h1>
             <p className="text-muted-foreground mt-1">
               {blogs.length} blog{blogs.length !== 1 ? 's' : ''} found
             </p>
@@ -196,7 +204,7 @@ const AllTeamBlogs = () => {
               <p className="text-muted-foreground mb-4">
                 There are no blogs available at the moment.
               </p>
-              <Button onClick={() => router.push("/create")}>
+              <Button onClick={() => router.push("/createBlog")}>
                 Create Your First Blog
               </Button>
             </div>

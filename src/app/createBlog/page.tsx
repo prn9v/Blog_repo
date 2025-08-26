@@ -479,6 +479,9 @@ const CreateBlog = () => {
 			const line = lines[i]
 			const trimmedLine = line.trim()
 
+			// Helper to detect table separator line (e.g., |----|-----|)
+			const isTableSeparator = (line: string) => /^(\s*\|?(\s*:?-+:?\s*)+\|?\s*)$/.test(line.trim())
+
 			const codeBlockMatch = trimmedLine.match(/^```(\w+)?$/)
 			if (codeBlockMatch) {
 				if (!inCodeBlock) {
@@ -566,8 +569,15 @@ const CreateBlog = () => {
 				continue
 			}
 
-			if (trimmedLine.includes('|') && !trimmedLine.match(/^[\s\-\|]+$/)) {
+			// && !trimmedLine.match(/^[\s\-\|]+$/)
+			if (trimmedLine.includes('|')) {
 				if (!inTable) {
+					// Already in a table, add rows
+					// Skip if the line is a separator line
+					if (isTableSeparator(trimmedLine)) {
+						// separators are handled once after header row, skip here
+						continue
+					}
 					if (currentBlock) {
 						blocks.push(currentBlock)
 						currentBlock = null
@@ -758,70 +768,81 @@ const CreateBlog = () => {
 	}
 
 	const handleSubmit = async (e: React.FormEvent) => {
-		e.preventDefault()
+    e.preventDefault();
 
-		if (
-			!formData.title?.trim() ||
-			!formData.content?.trim() ||
-			!formData.coverImageAlt?.trim() ||
-			!formData.excerpt?.trim() ||
-			!formData.coverImageUrl?.trim() ||
-			!formData.seoDescription?.trim() ||
-			!formData.seoTitle?.trim()
-		) {
-			alert('Please fill in all required fields')
-			return
-		}
+    const missingFields: string[] = [];
 
-		try {
-			setIsUploading(true)
+    if (!formData.title?.trim()) missingFields.push("Title");
+    if (!formData.content?.trim()) missingFields.push("Content");
+    if (!formData.conclusion?.trim()) missingFields.push("Conclusion");
+    if (!formData.coverImageAlt?.trim()) missingFields.push("Cover Image Alt Text");
+    if (!formData.excerpt?.trim()) missingFields.push("Excerpt");
+    if (!formData.coverImageUrl?.trim()) missingFields.push("Cover Image URL");
+    if (!formData.seoDescription?.trim()) missingFields.push("SEO Description");
+    if (!formData.seoTitle?.trim()) missingFields.push("SEO Title");
 
-			const parsedContent = parseContentToJSON(formData.content)
-			console.log(parsedContent)
-			const parsedConclusion = formData.conclusion ? parseContentToJSON(formData.conclusion) : undefined
+    if (missingFields.length > 0) {
+      alert(
+        `Please fill in the following required fields:\n\n- ${missingFields.join(
+          "\n- "
+        )}`
+      );
+      return;
+    }
 
-			const blogPostJSON: BlogPostJSON = {
-				title: formData.title,
-				slug: formData.slug,
-				content: parsedContent,
-				conclusion: parsedConclusion,
-				readTime: formData.readTime || 5,
-				excerpt: formData.excerpt,
-				coverImageUrl: formData.coverImageUrl,
-				BlogType: 'INFIGON',
-				sourceUrl: 'https://www.infigonfutures.com/blogs',
-				keywords: formData.keywords,
-				tags: formData.tags,
-				imageUrls: formData.imageUrls,
-				seoTitle: formData.seoTitle,
-				seoDescription: formData.seoDescription
-			}
+    try {
+      setIsUploading(true);
 
-			const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/v1/teams/blogs`, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				credentials: 'include',
-				body: JSON.stringify(blogPostJSON)
-			})
+      const parsedContent = parseContentToJSON(formData.content);
+      const parsedConclusion = formData.conclusion
+        ? parseContentToJSON(formData.conclusion)
+        : undefined;
 
-			if (!response.ok) {
-				const errorData = await response.json().catch(() => ({}))
-				throw new Error(errorData.message || `HTTP error! Status: ${response.status}`)
-			}
+      const blogPostJSON: BlogPostJSON = {
+        title: formData.title,
+        slug: formData.slug,
+        content: parsedContent,
+        conclusion: parsedConclusion,
+        readTime: formData.readTime || 5,
+        excerpt: formData.excerpt,
+        coverImageUrl: formData.coverImageUrl,
+        BlogType: "INFIGON",
+        sourceUrl: "https://www.infigonfutures.com/blogs",
+        keywords: formData.keywords,
+        tags: formData.tags,
+        imageUrls: formData.imageUrls,
+        seoTitle: formData.seoTitle,
+        seoDescription: formData.seoDescription,
+      };
 
-			const result = await response.json()
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/v1/teams/blogs`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(blogPostJSON),
+        }
+      );
 
-			router.push('/')
-		} catch (error) {
-			console.error('Error creating blog post:', error)
-			const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred'
-			alert(`Error creating blog post: ${errorMessage}`)
-		} finally {
-			setIsUploading(false)
-		}
-	}
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || `HTTP error! Status: ${response.status}`
+        );
+      }
+
+      await response.json();
+      router.push("/dashboard");
+    } catch (error) {
+      console.error("Error creating blog post:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "An unexpected error occurred";
+      alert(`Error creating blog post: ${errorMessage}`);
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
 	return (
 		<div className='min-h-screen bg-muted/20 py-10'>
@@ -830,7 +851,7 @@ const CreateBlog = () => {
 					<Button
 						variant='outline'
 						size='sm'
-						onClick={() => router.push('/')}
+						onClick={() => router.push('/dashboard')}
 						className='flex items-center gap-2'
 					>
 						<ArrowLeft className='h-4 w-4' />
@@ -1128,7 +1149,7 @@ const CreateBlog = () => {
 					</Card>
 
 					<div className='flex justify-end gap-4'>
-						<Button type='button' variant='outline' onClick={() => router.push('/')} disabled={isUploading}>
+						<Button type='button' variant='outline' onClick={() => router.push('/dashboard')} disabled={isUploading}>
 							Cancel
 						</Button>
 						<Button type='submit' className='cursor-pointer' disabled={isUploading}>

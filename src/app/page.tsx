@@ -49,7 +49,7 @@ const Login = () => {
         }
 
         alert("Login successful!");
-        router.push("/createBlog");
+        router.push("/dashboard");
       } catch (error) {
         console.error("Error during login:", error);
         alert("An error occurred during login. Please try again.");
@@ -61,13 +61,6 @@ const Login = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted flex flex-col items-center justify-center p-4 gap-12">
-      <div className=" justify-center items-center">
-        <Button onClick={() => router.push('/allBlogs')} className=" px-4 py-2 bg-black text-white font font-semibold hover:cursor-pointer">Click here to see all blogs</Button>
-      </div>
-      <div className=""> Anoop testing </div>
-      <div className=" justify-center items-center">
-        <Button onClick={() => router.push('/all-team-blogs')} className=" px-4 py-2 bg-black text-white font font-semibold hover:cursor-pointer">Click here to see all team blogs</Button>
-      </div>
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Login</CardTitle>

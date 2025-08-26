@@ -56,7 +56,16 @@ const AllBlogs = () => {
         }
 
         const data = await response.json();
-        setBlogs(data.blogs || []);
+        const blogsArray = data.blogs || data || [];
+        const sortedBlogs = (Array.isArray(blogsArray) ? blogsArray : []).sort(
+          (a, b) => {
+            const dateA = new Date(b.updatedAt || b.createdAt || 0).getTime();
+            const dateB = new Date(a.updatedAt || a.createdAt || 0).getTime();
+            return dateA - dateB; 
+          }
+        );
+
+        setBlogs(sortedBlogs)
       } catch (err: unknown) {
         const error =
           err instanceof Error ? err : new Error("Something went wrong");
@@ -80,7 +89,7 @@ const AllBlogs = () => {
         <div className="flex items-center gap-4 mb-8">
           <Button
             variant="ghost"
-            onClick={() => router.push("/")}
+            onClick={() => router.push("/dashboard")}
             className="flex items-center gap-2"
           >
             <ArrowLeft className="h-4 w-4" />

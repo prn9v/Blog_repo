@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Clock, User, Calendar, List, Loader2 } from "lucide-react";
 import Image from "next/image";
+import { cn } from "@/lib/utils";
 
 interface FormattedContent {
   text: string;
@@ -12,15 +13,37 @@ interface FormattedContent {
   italic?: boolean;
 }
 
-interface ContentItem {
-  type: string;
+type ContentItem = {
+  type:
+    | "heading"
+    | "text"
+    | "paragraph"
+    | "image"
+    | "list"
+    | "table"
+    | "code"
+    | "blockquote";
   text?: string;
-  rawContent?: string;
-  formattedContent?: FormattedContent[];
-  alt?: string;
   src?: string;
+  alt?: string;
+  url?: string;
   level?: number;
-}
+  formattedContent?: {
+    text: string;
+    bold?: boolean;
+    italic?: boolean;
+    code?: boolean;
+    link?: {
+      url: string;
+      text: string;
+    };
+  }[];
+  items?: string[]; // for lists
+  headers?: string[]; // for tables
+  rows?: string[][]; // for tables
+  language?: string; // for code blocks
+  listType?: "ordered" | "unordered";
+};
 
 interface Tag {
   id: string;
@@ -44,8 +67,6 @@ interface TocItem {
   level: number;
 }
 
-
-
 const isValidUrl = (url: string): boolean => {
   try {
     const parsed = new URL(url);
@@ -58,12 +79,14 @@ const isValidUrl = (url: string): boolean => {
 const generateId = (text: string): string => {
   return text
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '');
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
 };
 
-const extractTextFromFormattedContent = (formattedContent: FormattedContent[]): string => {
-  return formattedContent.map(segment => segment.text).join('');
+const extractTextFromFormattedContent = (
+  formattedContent: FormattedContent[]
+): string => {
+  return formattedContent.map((segment) => segment.text).join("");
 };
 
 const renderContent = (items: ContentItem[], tocItems: TocItem[]) => {
@@ -76,7 +99,9 @@ const renderContent = (items: ContentItem[], tocItems: TocItem[]) => {
               item.formattedContent.map((segment, i) => (
                 <span
                   key={i}
-                  className={`${segment.bold ? "font-bold" : ""} ${segment.italic ? "italic" : ""}`}
+                  className={`${segment.bold ? "font-bold" : ""} ${
+                    segment.italic ? "italic" : ""
+                  }`}
                 >
                   {segment.text}
                 </span>
@@ -88,39 +113,58 @@ const renderContent = (items: ContentItem[], tocItems: TocItem[]) => {
         );
       case "heading":
         const level = item.level || 1;
-        const headingText = item.formattedContent && item.formattedContent.length > 0
-          ? extractTextFromFormattedContent(item.formattedContent)
-          : item.text || "";
-        
+        const headingText =
+          item.formattedContent && item.formattedContent.length > 0
+            ? extractTextFromFormattedContent(item.formattedContent)
+            : item.text || "";
+
         const headingId = generateId(headingText);
-        
+
         // Add to TOC items
-        if (headingText && !tocItems.some(toc => toc.id === headingId)) {
+        if (headingText && !tocItems.some((toc) => toc.id === headingId)) {
           tocItems.push({
             id: headingId,
             title: headingText,
-            level: level
+            level: level,
           });
         }
 
-        const content = item.formattedContent && item.formattedContent.length > 0 ? (
-          item.formattedContent.map((segment, i) => (
-            <span
-              key={i}
-              className={`${segment.bold ? "font-bold" : ""} ${segment.italic ? "italic" : ""}`}
-            >
-              {segment.text}
-            </span>
-          ))
-        ) : (
-          <span>{item.text || ""}</span>
-        );
-        
-        const HeadingTag = level === 1 ? 'h1' : level === 2 ? 'h2' : level === 3 ? 'h3' : level === 4 ? 'h4' : level === 5 ? 'h5' : 'h6';
-        const headingClasses = level === 1 ? "text-2xl font-semibold mb-4" : 
-                              level === 2 ? "text-xl font-semibold mb-3" :
-                              level === 3 ? "text-lg font-semibold mb-3" :
-                              "text-base font-semibold mb-2";
+        const content =
+          item.formattedContent && item.formattedContent.length > 0 ? (
+            item.formattedContent.map((segment, i) => (
+              <span
+                key={i}
+                className={`${segment.bold ? "font-bold" : ""} ${
+                  segment.italic ? "italic" : ""
+                }`}
+              >
+                {segment.text}
+              </span>
+            ))
+          ) : (
+            <span>{item.text || ""}</span>
+          );
+
+        const HeadingTag =
+          level === 1
+            ? "h1"
+            : level === 2
+            ? "h2"
+            : level === 3
+            ? "h3"
+            : level === 4
+            ? "h4"
+            : level === 5
+            ? "h5"
+            : "h6";
+        const headingClasses =
+          level === 1
+            ? "text-2xl font-semibold mb-4"
+            : level === 2
+            ? "text-xl font-semibold mb-3"
+            : level === 3
+            ? "text-lg font-semibold mb-3"
+            : "text-base font-semibold mb-2";
 
         return (
           <HeadingTag key={index} id={headingId} className={headingClasses}>
@@ -154,15 +198,50 @@ const renderContent = (items: ContentItem[], tocItems: TocItem[]) => {
             />
           );
         }
+
+      case "list":
+        const ListTag = item.listType === "ordered" ? "ol" : "ul";
+        const listBaseClass =
+          item.listType === "ordered" ? "list-decimal" : "list-disc";
+
+        return (
+          <ListTag
+            key={index}
+            className={cn(
+              `${listBaseClass} list-inside mb-4 marker:text-black`,
+              "text-grey-950"
+            )}
+          >
+            {item.items?.map((listItem, i) => (
+              <li key={`${index}-${i}`} className="font-light">
+                {listItem}
+              </li>
+            ))}
+          </ListTag>
+        );
+
+      case "blockquote":
+        return (
+          <blockquote
+            key={index}
+            className="border-l-4 border-gray-400 pl-4 italic my-4"
+          >
+            {item.text}
+          </blockquote>
+        );
+
       default:
         return null;
     }
   });
 };
 
-const TableOfContents = ({ tocItems, onItemClick }: { 
-  tocItems: TocItem[], 
-  onItemClick: (id: string) => void 
+const TableOfContents = ({
+  tocItems,
+  onItemClick,
+}: {
+  tocItems: TocItem[];
+  onItemClick: (id: string) => void;
 }) => {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -179,9 +258,11 @@ const TableOfContents = ({ tocItems, onItemClick }: {
       </Button>
 
       {/* TOC Container */}
-      <div className={`bg-white border border-gray-200 rounded-lg shadow-lg p-4 w-72 max-h-96 overflow-y-auto ${
-        isOpen ? 'block' : 'hidden md:block'
-      }`}>
+      <div
+        className={`bg-white border border-gray-200 rounded-lg shadow-lg p-4 w-72 max-h-96 overflow-y-auto ${
+          isOpen ? "block" : "hidden md:block"
+        }`}
+      >
         <h3 className="font-semibold text-sm mb-3 text-gray-900 border-b pb-2">
           Table of Contents
         </h3>
@@ -195,9 +276,11 @@ const TableOfContents = ({ tocItems, onItemClick }: {
                     setIsOpen(false); // Close on mobile after click
                   }}
                   className={`text-left w-full px-2 py-1 text-sm hover:bg-gray-100 rounded transition-colors duration-200 ${
-                    item.level === 1 ? 'font-medium text-gray-900' :
-                    item.level === 2 ? 'text-gray-700 pl-4' :
-                    'text-gray-600 pl-6'
+                    item.level === 1
+                      ? "font-medium text-gray-900"
+                      : item.level === 2
+                      ? "text-gray-700 pl-4"
+                      : "text-gray-600 pl-6"
                   }`}
                   style={{ paddingLeft: `${item.level * 8}px` }}
                 >
@@ -208,7 +291,7 @@ const TableOfContents = ({ tocItems, onItemClick }: {
             <li>
               <button
                 onClick={() => {
-                  onItemClick('conclusion');
+                  onItemClick("conclusion");
                   setIsOpen(false);
                 }}
                 className="text-left w-full px-2 py-1 text-sm hover:bg-gray-100 rounded transition-colors duration-200 font-medium text-gray-900"
@@ -229,12 +312,14 @@ const SingleBlog = () => {
   const [blog, setBlog] = useState<Blog | null>(null);
   const [loading, setLoading] = useState(true);
   const [isPublishing, setIsPublishing] = useState(false);
-  console.log("blog: ",blog);
+  console.log("blog: ", blog);
 
   useEffect(() => {
     const fetchBlog = async () => {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/v1/blogs/${params.id}`);
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/v1/blogs/${params.id}`
+        );
         if (!res.ok) throw new Error("Failed to fetch blog");
         const data: Blog = await res.json();
         setBlog(data);
@@ -255,8 +340,8 @@ const SingleBlog = () => {
     const element = document.getElementById(id);
     if (element) {
       element.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
+        behavior: "smooth",
+        block: "start",
       });
     }
   };
@@ -316,7 +401,7 @@ const SingleBlog = () => {
       <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Blog Not Found</h1>
-          <Button onClick={() => router.push("/allBlogs")}>Back to All Blogs</Button>
+          <Button onClick={() => router.back()}>Back to All Blogs</Button>
         </div>
       </div>
     );
@@ -330,7 +415,7 @@ const SingleBlog = () => {
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <Button
           variant="ghost"
-          onClick={() => router.push("/allBlogs")}
+          onClick={() => router.back()}
           className="flex items-center gap-2 mb-6"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -385,7 +470,11 @@ const SingleBlog = () => {
             </div>
 
             <div className="prose prose-lg max-w-none">
-              {blog.content?.length ? renderContent(blog.content, currentTocItems) : <p>No content</p>}
+              {blog.content?.length ? (
+                renderContent(blog.content, currentTocItems)
+              ) : (
+                <p>No content</p>
+              )}
             </div>
 
             {blog.conclusion?.length ? (
@@ -397,7 +486,11 @@ const SingleBlog = () => {
           </div>
         </article>
 
-        <Button className="cursor-pointer" disabled={isPublishing} onClick={handlePublish}>
+        <Button
+          className="cursor-pointer"
+          disabled={isPublishing}
+          onClick={handlePublish}
+        >
           {isPublishing ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -411,8 +504,8 @@ const SingleBlog = () => {
 
       {/* Table of Contents */}
       {currentTocItems.length > 0 && (
-        <TableOfContents 
-          tocItems={currentTocItems} 
+        <TableOfContents
+          tocItems={currentTocItems}
           onItemClick={handleTocItemClick}
         />
       )}
