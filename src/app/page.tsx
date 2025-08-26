@@ -64,6 +64,7 @@ const Login = () => {
       <div className=" justify-center items-center">
         <Button onClick={() => router.push('/allBlogs')} className=" px-4 py-2 bg-black text-white font font-semibold hover:cursor-pointer">Click here to see all blogs</Button>
       </div>
+      <div className=""> Anoop testing </div>
       <div className=" justify-center items-center">
         <Button onClick={() => router.push('/all-team-blogs')} className=" px-4 py-2 bg-black text-white font font-semibold hover:cursor-pointer">Click here to see all team blogs</Button>
       </div>
