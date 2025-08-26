@@ -45,7 +45,7 @@ const AllBlogs = () => {
     const fetchBlogs = async () => {
       try {
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL}/v1/blogs1`,
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/v1/blogs`,
           {
             method: "GET",
           }

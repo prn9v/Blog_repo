@@ -1,1181 +1,1143 @@
-"use client";
+'use client'
 
-import { useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { PlusCircle, X, ArrowLeft, FileText, Loader2 } from "lucide-react";
-import dynamic from "next/dynamic";
-import Image from "next/image";
+import { useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { PlusCircle, X, ArrowLeft, FileText, Loader2 } from 'lucide-react'
+import dynamic from 'next/dynamic'
+import Image from 'next/image'
 
 // Dynamically import to avoid SSR issues
-const MDEditor = dynamic(() => import("@uiw/react-md-editor"), { ssr: false });
+const MDEditor = dynamic(() => import('@uiw/react-md-editor'), { ssr: false })
 
 interface FormattedText {
-  text: string;
-  bold?: boolean;
-  italic?: boolean;
-  code?: boolean;
-  link?: {
-    url: string;
-    text: string;
-  };
+	text: string
+	bold?: boolean
+	italic?: boolean
+	code?: boolean
+	link?: {
+		url: string
+		text: string
+	}
 }
 
 interface ContentBlock {
-  type: "text" | "heading" | "image" | "table" | "list" | "code" | "blockquote";
-  level?: number;
-  text?: string;
-  rawContent?: string;
-  formattedContent?: FormattedText[];
-  alt?: string;
-  src?: string;
-  headers?: string[];
-  rows?: string[][];
-  items?: string[];
-  language?: string;
+	type: 'text' | 'heading' | 'image' | 'table' | 'list' | 'code' | 'blockquote'
+	level?: number
+	text?: string
+	rawContent?: string
+	formattedContent?: FormattedText[]
+	alt?: string
+	src?: string
+	headers?: string[]
+	rows?: string[][]
+	items?: string[]
+	listType?: 'ordered' | 'unordered' // ✅ ADD THIS
+	language?: string
 }
 
 interface BlogPost {
-  title: string;
-  slug: string;
-  content: string;
-  conclusion: string;
-  readTime: number;
-  excerpt: string;
-  coverImage?: File;
-  coverImageUrl: string;
-  coverImageAlt: string;
-  sourceUrl: string;
-  keywords: string[];
-  seoTitle: string;
-  seoDescription: string;
-  tags: string[];
-  imageUrls: string[];
+	title: string
+	slug: string
+	content: string
+	conclusion: string
+	readTime: number
+	excerpt: string
+	coverImage?: File
+	coverImageUrl: string
+	coverImageAlt: string
+	sourceUrl: string
+	keywords: string[]
+	seoTitle: string
+	seoDescription: string
+	tags: string[]
+	imageUrls: string[]
 }
 
 interface BlogPostJSON {
-  title: string;
-  slug: string;
-  content: ContentBlock[];
-  conclusion?: ContentBlock[];
-  readTime: number;
-  excerpt: string;
-  coverImageUrl: string;
-  BlogType: string;
-  sourceUrl: string;
-  keywords: string[];
-  tags: string[];
-  imageUrls: string[];
-  seoTitle: string;
-  seoDescription: string;
+	title: string
+	slug: string
+	content: ContentBlock[]
+	conclusion?: ContentBlock[]
+	readTime: number
+	excerpt: string
+	coverImageUrl: string
+	BlogType: string
+	sourceUrl: string
+	keywords: string[]
+	tags: string[]
+	imageUrls: string[]
+	seoTitle: string
+	seoDescription: string
 }
 
 const CreateBlog = () => {
-  const router = useRouter();
-  const [isUploading, setIsUploading] = useState(false);
-  const [formData, setFormData] = useState<BlogPost>({
-    title: "",
-    slug: "",
-    content: "",
-    conclusion: "",
-    readTime: 1,
-    excerpt: "",
-    coverImageUrl: "",
-    coverImageAlt: "",
-    sourceUrl: "",
-    keywords: [],
-    seoTitle: "",
-    seoDescription: "",
-    tags: [],
-    imageUrls: [],
-  });
-
-  const [newKeyword, setNewKeyword] = useState("");
-  const [newTag, setNewTag] = useState("");
-
-  const htmlToMarkdown = useCallback((html: string): string => {
-    const tempDiv = document.createElement("div");
-    tempDiv.innerHTML = html;
-
-    let liCounter = 1;
-
-    const processNode = (node: Node): string => {
-      if (node.nodeType === Node.TEXT_NODE) {
-        return node.textContent || "";
-      }
-
-      if (node.nodeType === Node.ELEMENT_NODE) {
-        const element = node as Element;
-        const tagName = element.tagName.toLowerCase();
-        const children = Array.from(element.childNodes)
-          .map(processNode)
-          .join("");
-
-        switch (tagName) {
-          case "h1":
-            return `# ${children}\n\n`;
-          case "h2":
-            return `## ${children}\n\n`;
-          case "h3":
-            return `### ${children}\n\n`;
-          case "h4":
-            return `#### ${children}\n\n`;
-          case "h5":
-            return `##### ${children}\n\n`;
-          case "h6":
-            return `###### ${children}\n\n`;
-          case "p":
-            return `${children}\n\n`;
-          case "br":
-            return "\n";
-          case "b":
-          case "strong":
-            return `**${children}**`;
-          case "i":
-          case "em":
-            return `*${children}*`;
-          case "code":
-            return `\`${children}\``;
-          case "pre":
-            return `\`\`\`\n${children}\n\`\`\`\n\n`;
-          case "blockquote":
-            return `> ${children}\n\n`;
-          case "ul":
-          case "ol":
-            return children;
-          case "li":
-            const listItem = `${liCounter}. ${children.replace(/\n\n$/, "")}\n`;
-            liCounter++;
-            return listItem;
-          case "a":
-            const href = element.getAttribute("href");
-            return href ? `[${children}](${href})` : children;
-          case "img":
-            const src = element.getAttribute("src");
-            const alt = element.getAttribute("alt") || "";
-            return src ? `![${alt}](${src})` : "";
-          case "table":
-            const rows = Array.from(element.querySelectorAll("tr"));
-            if (rows.length === 0) return children;
-
-            let tableMarkdown = "";
-            rows.forEach((row, rowIndex) => {
-              const cells = Array.from(row.querySelectorAll("td, th"));
-              const cellContents = cells.map((cell) =>
-                processNode(cell).trim()
-              );
-              tableMarkdown += `| ${cellContents.join(" | ")} |\n`;
-              if (rowIndex === 0 && cells.length > 0) {
-                tableMarkdown += `| ${cells.map(() => "---").join(" | ")} |\n`;
-              }
-            });
-            return tableMarkdown + "\n";
-          case "div":
-          case "span":
-            const style = element.getAttribute("style") || "";
-            if (
-              style.includes("font-weight: bold") ||
-              style.includes("font-weight:bold")
-            ) {
-              return `**${children}**`;
-            }
-            if (
-              style.includes("font-style: italic") ||
-              style.includes("font-style:italic")
-            ) {
-              return `*${children}*`;
-            }
-            return children;
-          default:
-            return children;
-        }
-      }
-
-      return "";
-    };
-
-    return processNode(tempDiv).trim();
-  }, []);
-
-  const handlePaste = useCallback(
-    (
-      event: React.ClipboardEvent<HTMLDivElement>,
-      field: "content" | "conclusion"
-    ) => {
-      const clipboardData = event.clipboardData;
-      if (!clipboardData) return;
-
-      const htmlContent = clipboardData.getData("text/html");
-
-      // Only process HTML content if it exists and is non-empty
-      if (htmlContent && htmlContent.trim() !== "") {
-        event.preventDefault(); // Prevent default paste to avoid raw HTML insertion
-        const markdownContent = htmlToMarkdown(htmlContent);
-        setFormData((prev) => ({
-          ...prev,
-          [field]: prev[field]
-            ? `${prev[field]}\n\n${markdownContent}`
-            : markdownContent,
-        }));
-      }
-      // If only plain text is available, the editor will handle it natively
-    },
-    [htmlToMarkdown, setFormData] // Include setFormData in dependencies
-  );
- 
-  const generateSlug = (title: string) => {
-    return title
-      .toLowerCase()
-      .replace(/[^a-z0-9 -]/g, "")
-      .replace(/\s+/g, "-")
-      .replace(/-+/g, "-")
-      .trim();
-  };
-
-  const handleTitleChange = (title: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      title,
-      slug: generateSlug(title),
-      seoTitle: title.length <= 60 ? title : title.substring(0, 60),
-    }));
-  };
-
-  const uploadFileToAPI = async (file: File, slug: string): Promise<string> => {
-    if (!file || !slug) {
-      throw new Error("File and slug are required");
-    }
-
-    const formDataUpload = new FormData();
-    formDataUpload.append("file", file);
-    formDataUpload.append("folderName", `/blog/${slug}`);
-
-    try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/v1/teams/util/upload-file`,
-        {
-          method: "POST",
-          headers: {
-            Accept: "*/*",
-          },
-          credentials: "include",
-          body: formDataUpload,
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error("Error details:", errorData);
-        throw new Error(
-          errorData.message || `HTTP error! Status: ${response.status}`
-        );
-      }
-
-      const result = await response.json();
-      return result.fileUrl;
-    } catch (error) {
-      console.error("Error uploading file:", error);
-      throw error;
-    }
-  };
-
-  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB in bytes
-
-  const validateFileSize = (file: File): boolean => {
-    if (file.size > MAX_FILE_SIZE) {
-      alert(
-        `File "${file.name}" exceeds the maximum size limit of 5MB. Please choose a smaller file.`
-      );
-      return false;
-    }
-    return true;
-  };
-
-  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !formData.slug) {
-      alert(
-        "Please select a file and ensure a title is provided to generate a slug."
-      );
-      return;
-    }
-
-    if (!validateFileSize(file)) {
-      return;
-    }
-
-    setIsUploading(true);
-    try {
-      const uploadedUrl = await uploadFileToAPI(file, formData.slug);
-      setFormData((prev) => ({
-        ...prev,
-        coverImage: file,
-        coverImageUrl: uploadedUrl,
-        imageUrls: [...prev.imageUrls, uploadedUrl],
-      }));
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "An unexpected error occurred";
-      alert(`Error uploading cover image: ${errorMessage}`);
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleContentImageUpload = async (
-    e: React.ChangeEvent<HTMLInputElement>,
-    isConclusion: boolean = false
-  ) => {
-    const files = e.target.files;
-    if (!files || !formData.slug) {
-      alert(
-        "Please select a file and ensure a title is provided to generate a slug."
-      );
-      return;
-    }
-
-    const newFiles = Array.from(files);
-
-    for (const file of newFiles) {
-      if (!validateFileSize(file)) {
-        return;
-      }
-    }
-
-    setIsUploading(true);
-    try {
-      const uploadedUrls: string[] = [];
-
-      for (const file of newFiles) {
-        const uploadedUrl = await uploadFileToAPI(file, formData.slug);
-        uploadedUrls.push(uploadedUrl);
-        setFormData((prev) => ({
-          ...prev,
-          imageUrls: [...prev.imageUrls, uploadedUrl],
-        }));
-      }
-
-      const imageMarkdown = uploadedUrls
-        .map((url, index) => `![Image ${Date.now() + index}](${url})`)
-        .join("\n\n");
-
-      const field = isConclusion ? "conclusion" : "content";
-      const currentValue = formData[field] || "";
-
-      setFormData((prev) => ({
-        ...prev,
-        [field]: currentValue
-          ? `${currentValue}\n\n${imageMarkdown}`
-          : imageMarkdown,
-      }));
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "An unexpected error occurred";
-      alert(`Error uploading content image: ${errorMessage}`);
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const parseFormattedText = (text: string): FormattedText[] => {
-    const parts: FormattedText[] = [];
-    let currentIndex = 0;
-
-    const patterns = [
-      { regex: /(?<!\*)\*{3}([^*]+)\*{3}(?!\*)/g, type: "bold-italic" },
-      { regex: /(?<!\*)\*{2}([^*]+)\*{2}(?!\*)/g, type: "bold" },
-      { regex: /(?<!\*)\*{1}([^*]+)\*{1}(?!\*)/g, type: "italic" },
-      { regex: /`([^`]+)`/g, type: "code" },
-      { regex: /\[([^\]]+)\]\(([^)]+)\)/g, type: "link" },
-    ];
-
-    const matches: Array<{
-      index: number;
-      length: number;
-      text: string;
-      type: string;
-      url?: string;
-    }> = [];
-
-    patterns.forEach((pattern) => {
-      let match;
-      while ((match = pattern.regex.exec(text)) !== null) {
-        matches.push({
-          index: match.index,
-          length: match[0].length,
-          text: match[1],
-          type: pattern.type,
-          url: pattern.type === "link" ? match[2] : undefined,
-        });
-      }
-    });
-
-    matches.sort((a, b) => a.index - b.index);
-
-    matches.forEach((match) => {
-      if (match.index > currentIndex) {
-        const plainText = text.substring(currentIndex, match.index);
-        if (plainText) {
-          parts.push({ text: plainText });
-        }
-      }
-
-      const formattedPart: FormattedText = { text: match.text };
-
-      switch (match.type) {
-        case "bold":
-          formattedPart.bold = true;
-          break;
-        case "italic":
-          formattedPart.italic = true;
-          break;
-        case "bold-italic":
-          formattedPart.bold = true;
-          formattedPart.italic = true;
-          break;
-        case "code":
-          formattedPart.code = true;
-          break;
-        case "link":
-          formattedPart.link = { url: match.url!, text: match.text };
-          break;
-      }
-
-      parts.push(formattedPart);
-      currentIndex = match.index + match.length;
-    });
-
-    if (currentIndex < text.length) {
-      const remainingText = text.substring(currentIndex);
-      if (remainingText) {
-        parts.push({ text: remainingText });
-      }
-    }
-
-    return parts.length > 0 ? parts : [{ text }];
-  };
-
-  const parseContentToJSON = (markdownContent: string): ContentBlock[] => {
-    if (!markdownContent) return [];
-
-    const blocks: ContentBlock[] = [];
-    const lines = markdownContent.split("\n");
-    let currentBlock: ContentBlock | null = null;
-    let tableRows: string[][] = [];
-    let inTable = false;
-    let inCodeBlock = false;
-    let codeContent = "";
-    let codeLanguage = "";
-    let listItems: string[] = [];
-    let inList = false;
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const trimmedLine = line.trim();
-
-      const codeBlockMatch = trimmedLine.match(/^```(\w+)?$/);
-      if (codeBlockMatch) {
-        if (!inCodeBlock) {
-          if (currentBlock) {
-            blocks.push(currentBlock);
-            currentBlock = null;
-          }
-          inCodeBlock = true;
-          codeLanguage = codeBlockMatch[1] || "";
-          codeContent = "";
-        } else {
-          blocks.push({
-            type: "code",
-            rawContent: "```" + codeLanguage + "\n" + codeContent + "\n```",
-            text: codeContent,
-            language: codeLanguage,
-          });
-          inCodeBlock = false;
-          codeContent = "";
-          codeLanguage = "";
-        }
-        continue;
-      }
-
-      if (inCodeBlock) {
-        codeContent += (codeContent ? "\n" : "") + line;
-        continue;
-      }
-
-      if (!trimmedLine && !currentBlock && !inList && !inTable) continue;
-
-      const blockquoteMatch = trimmedLine.match(/^>\s*(.+)/);
-      if (blockquoteMatch) {
-        if (currentBlock) {
-          blocks.push(currentBlock);
-          currentBlock = null;
-        }
-        if (inList) {
-          blocks.push({
-            type: "list",
-            items: listItems,
-            rawContent: listItems.map((item) => `- ${item}`).join("\n"),
-          });
-          listItems = [];
-          inList = false;
-        }
-        blocks.push({
-          type: "blockquote",
-          text: blockquoteMatch[1],
-          rawContent: trimmedLine,
-          formattedContent: parseFormattedText(blockquoteMatch[1]),
-        });
-        continue;
-      }
-
-      const imageMatch = trimmedLine.match(/!\[([^\]]*)\]\(([^)]+)\)/);
-      if (imageMatch) {
-        if (currentBlock) {
-          blocks.push(currentBlock);
-          currentBlock = null;
-        }
-        if (inList) {
-          blocks.push({
-            type: "list",
-            items: listItems,
-            rawContent: listItems.map((item) => `- ${item}`).join("\n"),
-          });
-          listItems = [];
-          inList = false;
-        }
-        blocks.push({
-          type: "image",
-          alt: imageMatch[1],
-          src: imageMatch[2],
-          rawContent: trimmedLine,
-        });
-        continue;
-      }
-
-      if (trimmedLine.includes("|") && !trimmedLine.match(/^[\s\-\|]+$/)) {
-        if (!inTable) {
-          if (currentBlock) {
-            blocks.push(currentBlock);
-            currentBlock = null;
-          }
-          if (inList) {
-            blocks.push({
-              type: "list",
-              items: listItems,
-              rawContent: listItems.map((item) => `- ${item}`).join("\n"),
-            });
-            listItems = [];
-            inList = false;
-          }
-          inTable = true;
-          tableRows = [];
-        }
-
-        const cells = trimmedLine
-          .split("|")
-          .map((cell) => cell.trim())
-          .filter((cell) => cell);
-        if (cells.length > 0) {
-          tableRows.push(cells);
-        }
-        continue;
-      } else if (inTable) {
-        if (tableRows.length > 0) {
-          const tableMarkdown = tableRows
-            .map((row) => `| ${row.join(" | ")} |`)
-            .join("\n");
-          blocks.push({
-            type: "table",
-            headers: tableRows[0] || [],
-            rows: tableRows.slice(1) || [],
-            rawContent: tableMarkdown,
-          });
-        }
-        inTable = false;
-        tableRows = [];
-      }
-
-      const listMatch = trimmedLine.match(/^[-*+]\s+(.+)/);
-      if (listMatch) {
-        if (currentBlock) {
-          blocks.push(currentBlock);
-          currentBlock = null;
-        }
-        if (!inList) {
-          inList = true;
-          listItems = [];
-        }
-        listItems.push(listMatch[1]);
-        continue;
-      } else if (inList && trimmedLine) {
-        if (listItems.length > 0) {
-          listItems[listItems.length - 1] += " " + trimmedLine;
-        }
-        continue;
-      } else if (inList) {
-        blocks.push({
-          type: "list",
-          items: listItems,
-          rawContent: listItems.map((item) => `- ${item}`).join("\n"),
-        });
-        listItems = [];
-        inList = false;
-      }
-
-      const headingMatch = trimmedLine.match(/^(#{1,6})\s+(.+)/);
-      if (headingMatch) {
-        if (currentBlock) {
-          blocks.push(currentBlock);
-          currentBlock = null;
-        }
-        blocks.push({
-          type: "heading",
-          level: headingMatch[1].length,
-          text: headingMatch[2],
-          rawContent: trimmedLine,
-          formattedContent: parseFormattedText(headingMatch[2]),
-        });
-        continue;
-      }
-
-      if (trimmedLine) {
-        if (!currentBlock) {
-          currentBlock = {
-            type: "text",
-            text: trimmedLine,
-            rawContent: trimmedLine,
-            formattedContent: parseFormattedText(trimmedLine),
-          };
-        } else {
-          currentBlock.text += "\n" + trimmedLine;
-          currentBlock.rawContent += "\n" + trimmedLine;
-          currentBlock.formattedContent = parseFormattedText(
-            currentBlock.text!
-          );
-        }
-      } else if (currentBlock) {
-        blocks.push(currentBlock);
-        currentBlock = null;
-      }
-    }
-
-    if (currentBlock) {
-      blocks.push(currentBlock);
-    }
-
-    if (inTable && tableRows.length > 0) {
-      const tableMarkdown = tableRows
-        .map((row) => `| ${row.join(" | ")} |`)
-        .join("\n");
-      blocks.push({
-        type: "table",
-        headers: tableRows[0] || [],
-        rows: tableRows.slice(1) || [],
-        rawContent: tableMarkdown,
-      });
-    }
-
-    if (inList && listItems.length > 0) {
-      blocks.push({
-        type: "list",
-        items: listItems,
-        rawContent: listItems.map((item) => `- ${item}`).join("\n"),
-      });
-    }
-
-    return blocks;
-  };
-
-  const addKeywords = () => {
-    const trimmed = newKeyword.trim();
-    if (trimmed) {
-      const newKeywords = trimmed
-        .split(",")
-        .map((keyword) => keyword.trim())
-        .filter((keyword) => keyword && !formData.keywords.includes(keyword));
-
-      if (newKeywords.length > 0) {
-        setFormData((prev) => ({
-          ...prev,
-          keywords: [...prev.keywords, ...newKeywords],
-        }));
-        setNewKeyword("");
-      }
-    }
-  };
-
-  const removeKeyword = (keywordToRemove: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      keywords: prev.keywords.filter((keyword) => keyword !== keywordToRemove),
-    }));
-  };
-
-  const addTags = () => {
-    const trimmed = newTag.trim();
-    if (trimmed) {
-      const newTags = trimmed
-        .split(",")
-        .map((tag) => tag.trim())
-        .filter((tag) => tag && !formData.tags.includes(tag));
-
-      if (newTags.length > 0) {
-        setFormData((prev) => ({
-          ...prev,
-          tags: [...prev.tags, ...newTags],
-        }));
-        setNewTag("");
-      }
-    }
-  };
-
-  const removeTag = (tagToRemove: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      tags: prev.tags.filter((tag) => tag !== tagToRemove),
-    }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (
-  !formData.title?.trim() ||
-  !formData.content?.trim() ||
-  !formData.coverImageAlt?.trim() ||
-  !formData.excerpt?.trim() ||
-  !formData.coverImageUrl?.trim() ||
-  !formData.seoDescription?.trim() ||
-  !formData.seoTitle?.trim() ||
-  formData.keywords?.length == 0
-) {
-  alert("Please fill in all required fields");
-  return;
+	const router = useRouter()
+	const [isUploading, setIsUploading] = useState(false)
+	const [formData, setFormData] = useState<BlogPost>({
+		title: '',
+		slug: '',
+		content: '',
+		conclusion: '',
+		readTime: 1,
+		excerpt: '',
+		coverImageUrl: '',
+		coverImageAlt: '',
+		sourceUrl: '',
+		keywords: [],
+		seoTitle: '',
+		seoDescription: '',
+		tags: [],
+		imageUrls: []
+	})
+
+	const [newKeyword, setNewKeyword] = useState('')
+	const [newTag, setNewTag] = useState('')
+
+	const htmlToMarkdown = useCallback((html: string): string => {
+		const tempDiv = document.createElement('div')
+		tempDiv.innerHTML = html
+
+		let liCounter = 1
+
+		const processNode = (node: Node): string => {
+			if (node.nodeType === Node.TEXT_NODE) {
+				return node.textContent || ''
+			}
+
+			if (node.nodeType === Node.ELEMENT_NODE) {
+				const element = node as Element
+				const tagName = element.tagName.toLowerCase()
+				const children = Array.from(element.childNodes).map(processNode).join('')
+
+				switch (tagName) {
+					case 'h1':
+						return `# ${children}\n\n`
+					case 'h2':
+						return `## ${children}\n\n`
+					case 'h3':
+						return `### ${children}\n\n`
+					case 'h4':
+						return `#### ${children}\n\n`
+					case 'h5':
+						return `##### ${children}\n\n`
+					case 'h6':
+						return `###### ${children}\n\n`
+					case 'p':
+						return `${children}\n\n`
+					case 'br':
+						return '\n'
+					case 'b':
+					case 'strong':
+						return `**${children}**`
+					case 'i':
+					case 'em':
+						return `*${children}*`
+					case 'code':
+						return `\`${children}\``
+					case 'pre':
+						return `\`\`\`\n${children}\n\`\`\`\n\n`
+					case 'blockquote':
+						return `> ${children}\n\n`
+					case 'ul':
+					case 'ol':
+						return children
+					case 'li':
+						const listItem = `${liCounter}. ${children.replace(/\n\n$/, '')}\n`
+						liCounter++
+						return listItem
+					case 'a':
+						const href = element.getAttribute('href')
+						return href ? `[${children}](${href})` : children
+					case 'img':
+						const src = element.getAttribute('src')
+						const alt = element.getAttribute('alt') || ''
+						return src ? `![${alt}](${src})` : ''
+					case 'table':
+						const rows = Array.from(element.querySelectorAll('tr'))
+						if (rows.length === 0) return children
+
+						let tableMarkdown = ''
+						rows.forEach((row, rowIndex) => {
+							const cells = Array.from(row.querySelectorAll('td, th'))
+							const cellContents = cells.map((cell) => processNode(cell).trim())
+							tableMarkdown += `| ${cellContents.join(' | ')} |\n`
+							if (rowIndex === 0 && cells.length > 0) {
+								tableMarkdown += `| ${cells.map(() => '---').join(' | ')} |\n`
+							}
+						})
+						return tableMarkdown + '\n'
+					case 'div':
+					case 'span':
+						const style = element.getAttribute('style') || ''
+						if (style.includes('font-weight: bold') || style.includes('font-weight:bold')) {
+							return `**${children}**`
+						}
+						if (style.includes('font-style: italic') || style.includes('font-style:italic')) {
+							return `*${children}*`
+						}
+						return children
+					default:
+						return children
+				}
+			}
+
+			return ''
+		}
+
+		return processNode(tempDiv).trim()
+	}, [])
+
+	const handlePaste = useCallback(
+		(event: React.ClipboardEvent<HTMLDivElement>, field: 'content' | 'conclusion') => {
+			const clipboardData = event.clipboardData
+			if (!clipboardData) return
+
+			const htmlContent = clipboardData.getData('text/html')
+
+			// Only process HTML content if it exists and is non-empty
+			if (htmlContent && htmlContent.trim() !== '') {
+				event.preventDefault() // Prevent default paste to avoid raw HTML insertion
+				const markdownContent = htmlToMarkdown(htmlContent)
+				setFormData((prev) => ({
+					...prev,
+					[field]: prev[field] ? `${prev[field]}\n\n${markdownContent}` : markdownContent
+				}))
+			}
+			// If only plain text is available, the editor will handle it natively
+		},
+		[htmlToMarkdown, setFormData] // Include setFormData in dependencies
+	)
+
+	const generateSlug = (title: string) => {
+		return title
+			.toLowerCase()
+			.replace(/[^a-z0-9 -]/g, '')
+			.replace(/\s+/g, '-')
+			.replace(/-+/g, '-')
+			.trim()
+	}
+
+	const handleTitleChange = (title: string) => {
+		setFormData((prev) => ({
+			...prev,
+			title,
+			slug: generateSlug(title),
+			seoTitle: title.length <= 60 ? title : title.substring(0, 60)
+		}))
+	}
+
+	const uploadFileToAPI = async (file: File, slug: string): Promise<string> => {
+		if (!file || !slug) {
+			throw new Error('File and slug are required')
+		}
+
+		// Normalize the filename before uploading
+		const normalizedFile = normalizeFilename(file)
+		console.log(`Original filename: ${file.name}, Normalized filename: ${normalizedFile.name}`)
+
+		const formDataUpload = new FormData()
+		formDataUpload.append('file', normalizedFile) // Use normalized file
+		formDataUpload.append('folderName', `/blog/${slug}`)
+
+		try {
+			const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/v1/teams/util/upload-file`, {
+				method: 'POST',
+				headers: {
+					Accept: '*/*'
+				},
+				credentials: 'include',
+				body: formDataUpload
+			})
+
+			if (!response.ok) {
+				const errorData = await response.json().catch(() => ({}))
+				console.error('Error details:', errorData)
+				throw new Error(errorData.message || `HTTP error! Status: ${response.status}`)
+			}
+
+			const result = await response.json()
+			return result.fileUrl
+		} catch (error) {
+			console.error('Error uploading file:', error)
+			throw error
+		}
+	}
+
+	const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB in bytes
+
+	const validateFileSize = (file: File): boolean => {
+		if (file.size > MAX_FILE_SIZE) {
+			alert(`File "${file.name}" exceeds the maximum size limit of 5MB. Please choose a smaller file.`)
+			return false
+		}
+		return true
+	}
+
+	// Helper function to normalize filename
+	const normalizeFilename = (file: File): File => {
+		// Get file extension
+		const extension = file.name.split('.').pop() || ''
+		// Get filename without extension
+		const nameWithoutExtension = file.name.substring(0, file.name.lastIndexOf('.')) || file.name
+
+		// Remove spaces and convert to lowercase
+		const normalizedName = nameWithoutExtension
+			.replace(/\s+/g, '') // Remove all spaces
+			.toLowerCase() // Convert to lowercase
+
+		// Create new filename
+		const newFilename = extension ? `${normalizedName}.${extension.toLowerCase()}` : normalizedName
+
+		// Create a new File object with the normalized name
+		const normalizedFile = new File([file], newFilename, {
+			type: file.type,
+			lastModified: file.lastModified
+		})
+
+		return normalizedFile
+	}
+
+	const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+		const file = e.target.files?.[0]
+		if (!file || !formData.slug) {
+			alert('Please select a file and ensure a title is provided to generate a slug.')
+			return
+		}
+
+		if (!validateFileSize(file)) {
+			return
+		}
+
+		setIsUploading(true)
+		try {
+			// File will be normalized inside uploadFileToAPI
+			const uploadedUrl = await uploadFileToAPI(file, formData.slug)
+			setFormData((prev) => ({
+				...prev,
+				coverImage: file,
+				coverImageUrl: uploadedUrl,
+				imageUrls: [...prev.imageUrls, uploadedUrl]
+			}))
+			console.log(`Cover image uploaded with normalized filename: ${uploadedUrl}`)
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred'
+			alert(`Error uploading cover image: ${errorMessage}`)
+		} finally {
+			setIsUploading(false)
+		}
+	}
+
+	const handleContentImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, isConclusion: boolean = false) => {
+		const files = e.target.files
+		if (!files || !formData.slug) {
+			alert('Please select a file and ensure a title is provided to generate a slug.')
+			return
+		}
+
+		const newFiles = Array.from(files)
+
+		for (const file of newFiles) {
+			if (!validateFileSize(file)) {
+				return
+			}
+		}
+
+		setIsUploading(true)
+		try {
+			const uploadedUrls: string[] = []
+
+			for (const file of newFiles) {
+				// File will be normalized inside uploadFileToAPI
+				const uploadedUrl = await uploadFileToAPI(file, formData.slug)
+				uploadedUrls.push(uploadedUrl)
+				setFormData((prev) => ({
+					...prev,
+					imageUrls: [...prev.imageUrls, uploadedUrl]
+				}))
+				console.log(`Content image uploaded with normalized filename: ${uploadedUrl}`)
+			}
+
+			const imageMarkdown = uploadedUrls
+				.map((url, index) => `![Image ${Date.now() + index}](${url})`)
+				.join('\n\n')
+
+			const field = isConclusion ? 'conclusion' : 'content'
+			const currentValue = formData[field] || ''
+
+			setFormData((prev) => ({
+				...prev,
+				[field]: currentValue ? `${currentValue}\n\n${imageMarkdown}` : imageMarkdown
+			}))
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred'
+			alert(`Error uploading content image: ${errorMessage}`)
+		} finally {
+			setIsUploading(false)
+		}
+	}
+
+	const parseFormattedText = (text: string): FormattedText[] => {
+		const parts: FormattedText[] = []
+		let currentIndex = 0
+
+		const patterns = [
+			{ regex: /(?<!\*)\*{3}([^*]+)\*{3}(?!\*)/g, type: 'bold-italic' },
+			{ regex: /(?<!\*)\*{2}([^*]+)\*{2}(?!\*)/g, type: 'bold' },
+			{ regex: /(?<!\*)\*{1}([^*]+)\*{1}(?!\*)/g, type: 'italic' },
+			{ regex: /`([^`]+)`/g, type: 'code' },
+			{ regex: /\[([^\]]+)\]\(([^)]+)\)/g, type: 'link' }
+		]
+
+		const matches: Array<{
+			index: number
+			length: number
+			text: string
+			type: string
+			url?: string
+		}> = []
+
+		patterns.forEach((pattern) => {
+			let match
+			while ((match = pattern.regex.exec(text)) !== null) {
+				matches.push({
+					index: match.index,
+					length: match[0].length,
+					text: match[1],
+					type: pattern.type,
+					url: pattern.type === 'link' ? match[2] : undefined
+				})
+			}
+		})
+
+		matches.sort((a, b) => a.index - b.index)
+
+		matches.forEach((match) => {
+			if (match.index > currentIndex) {
+				const plainText = text.substring(currentIndex, match.index)
+				if (plainText) {
+					parts.push({ text: plainText })
+				}
+			}
+
+			const formattedPart: FormattedText = { text: match.text }
+
+			switch (match.type) {
+				case 'bold':
+					formattedPart.bold = true
+					break
+				case 'italic':
+					formattedPart.italic = true
+					break
+				case 'bold-italic':
+					formattedPart.bold = true
+					formattedPart.italic = true
+					break
+				case 'code':
+					formattedPart.code = true
+					break
+				case 'link':
+					formattedPart.link = { url: match.url!, text: match.text }
+					break
+			}
+
+			parts.push(formattedPart)
+			currentIndex = match.index + match.length
+		})
+
+		if (currentIndex < text.length) {
+			const remainingText = text.substring(currentIndex)
+			if (remainingText) {
+				parts.push({ text: remainingText })
+			}
+		}
+
+		return parts.length > 0 ? parts : [{ text }]
+	}
+
+	const parseContentToJSON = (markdownContent: string): ContentBlock[] => {
+		if (!markdownContent) return []
+
+		const blocks: ContentBlock[] = []
+		const lines = markdownContent.split('\n')
+		let currentBlock: ContentBlock | null = null
+		let tableRows: string[][] = []
+		let inTable = false
+		let inCodeBlock = false
+		let codeContent = ''
+		let codeLanguage = ''
+		let listItems: string[] = []
+		let inList = false
+		let listType: 'ordered' | 'unordered' | undefined
+
+		for (let i = 0; i < lines.length; i++) {
+			const line = lines[i]
+			const trimmedLine = line.trim()
+
+			const codeBlockMatch = trimmedLine.match(/^```(\w+)?$/)
+			if (codeBlockMatch) {
+				if (!inCodeBlock) {
+					if (currentBlock) {
+						blocks.push(currentBlock)
+						currentBlock = null
+					}
+					inCodeBlock = true
+					codeLanguage = codeBlockMatch[1] || ''
+					codeContent = ''
+				} else {
+					blocks.push({
+						type: 'code',
+						rawContent: '``````',
+						text: codeContent,
+						language: codeLanguage
+					})
+					inCodeBlock = false
+					codeContent = ''
+					codeLanguage = ''
+				}
+				continue
+			}
+
+			if (inCodeBlock) {
+				codeContent += (codeContent ? '\n' : '') + line
+				continue
+			}
+
+			if (!trimmedLine && !currentBlock && !inList && !inTable) continue
+
+			const blockquoteMatch = trimmedLine.match(/^>\s*(.+)/)
+			if (blockquoteMatch) {
+				if (currentBlock) {
+					blocks.push(currentBlock)
+					currentBlock = null
+				}
+				if (inList) {
+					blocks.push({
+						type: 'list',
+						items: listItems,
+						rawContent: listItems
+							.map((item, i) => (listType === 'ordered' ? `${i + 1}. ${item}` : `- ${item}`))
+							.join('\n'),
+						listType
+					})
+					listItems = []
+					inList = false
+					listType = undefined
+				}
+				blocks.push({
+					type: 'blockquote',
+					text: blockquoteMatch[1],
+					rawContent: trimmedLine,
+					formattedContent: parseFormattedText(blockquoteMatch[1])
+				})
+				continue
+			}
+
+			const imageMatch = trimmedLine.match(/!\[([^\]]*)\]\(([^)]+)\)/)
+			if (imageMatch) {
+				if (currentBlock) {
+					blocks.push(currentBlock)
+					currentBlock = null
+				}
+				if (inList) {
+					blocks.push({
+						type: 'list',
+						items: listItems,
+						rawContent: listItems
+							.map((item, i) => (listType === 'ordered' ? `${i + 1}. ${item}` : `- ${item}`))
+							.join('\n'),
+						listType
+					})
+					listItems = []
+					inList = false
+					listType = undefined
+				}
+				blocks.push({
+					type: 'image',
+					alt: imageMatch[1],
+					src: imageMatch[2],
+					rawContent: trimmedLine
+				})
+				continue
+			}
+
+			if (trimmedLine.includes('|') && !trimmedLine.match(/^[\s\-\|]+$/)) {
+				if (!inTable) {
+					if (currentBlock) {
+						blocks.push(currentBlock)
+						currentBlock = null
+					}
+					if (inList) {
+						blocks.push({
+							type: 'list',
+							items: listItems,
+							rawContent: listItems
+								.map((item, i) => (listType === 'ordered' ? `${i + 1}. ${item}` : `- ${item}`))
+								.join('\n'),
+							listType
+						})
+						listItems = []
+						inList = false
+						listType = undefined
+					}
+					inTable = true
+					tableRows = []
+				}
+				const cells = trimmedLine
+					.split('|')
+					.map((cell) => cell.trim())
+					.filter((cell) => cell)
+				if (cells.length > 0) {
+					tableRows.push(cells)
+				}
+				continue
+			} else if (inTable) {
+				if (tableRows.length > 0) {
+					const tableMarkdown = tableRows.map((row) => `| ${row.join(' | ')} |`).join('\n')
+					blocks.push({
+						type: 'table',
+						headers: tableRows[0] || [],
+						rows: tableRows.slice(1) || [],
+						rawContent: tableMarkdown
+					})
+				}
+				inTable = false
+				tableRows = []
+			}
+
+			const ulMatch = trimmedLine.match(/^[-*+]\s+(.+)/)
+			const olMatch = trimmedLine.match(/^\d+\.\s+(.+)/)
+
+			if (ulMatch || olMatch) {
+				if (currentBlock) {
+					blocks.push(currentBlock)
+					currentBlock = null
+				}
+				if (!inList) {
+					inList = true
+					listItems = []
+					listType = olMatch ? 'ordered' : 'unordered'
+				}
+				listItems.push(ulMatch ? ulMatch[1] : olMatch![1])
+				continue
+			} else if (inList && trimmedLine) {
+				if (listItems.length > 0) {
+					listItems[listItems.length - 1] += ' ' + trimmedLine
+				}
+				continue
+			} else if (inList) {
+				blocks.push({
+					type: 'list',
+					items: listItems,
+					rawContent: listItems
+						.map((item, i) => (listType === 'ordered' ? `${i + 1}. ${item}` : `- ${item}`))
+						.join('\n'),
+					listType
+				})
+				listItems = []
+				inList = false
+				listType = undefined
+			}
+
+			const headingMatch = trimmedLine.match(/^(#{1,6})\s+(.+)/)
+			if (headingMatch) {
+				if (currentBlock) {
+					blocks.push(currentBlock)
+					currentBlock = null
+				}
+				blocks.push({
+					type: 'heading',
+					level: headingMatch[1].length,
+					text: headingMatch[2],
+					rawContent: trimmedLine,
+					formattedContent: parseFormattedText(headingMatch[2])
+				})
+				continue
+			}
+
+			if (trimmedLine) {
+				if (!currentBlock) {
+					currentBlock = {
+						type: 'text',
+						text: trimmedLine,
+						rawContent: trimmedLine,
+						formattedContent: parseFormattedText(trimmedLine)
+					}
+				} else {
+					currentBlock.text += '\n' + trimmedLine
+					currentBlock.rawContent += '\n' + trimmedLine
+					currentBlock.formattedContent = parseFormattedText(currentBlock.text!)
+				}
+			} else if (currentBlock) {
+				blocks.push(currentBlock)
+				currentBlock = null
+			}
+		}
+
+		if (currentBlock) {
+			blocks.push(currentBlock)
+		}
+
+		if (inTable && tableRows.length > 0) {
+			const tableMarkdown = tableRows.map((row) => `| ${row.join(' | ')} |`).join('\n')
+			blocks.push({
+				type: 'table',
+				headers: tableRows[0] || [],
+				rows: tableRows.slice(1) || [],
+				rawContent: tableMarkdown
+			})
+		}
+
+		if (inList && listItems.length > 0) {
+			blocks.push({
+				type: 'list',
+				items: listItems,
+				rawContent: listItems
+					.map((item, i) => (listType === 'ordered' ? `${i + 1}. ${item}` : `- ${item}`))
+					.join('\n'),
+				listType
+			})
+		}
+
+		return blocks
+	}
+
+	const addKeywords = () => {
+		const trimmed = newKeyword.trim()
+		if (trimmed) {
+			const newKeywords = trimmed
+				.split(',')
+				.map((keyword) => keyword.trim())
+				.filter((keyword) => keyword && !formData.keywords.includes(keyword))
+
+			if (newKeywords.length > 0) {
+				setFormData((prev) => ({
+					...prev,
+					keywords: [...prev.keywords, ...newKeywords]
+				}))
+				setNewKeyword('')
+			}
+		}
+	}
+
+	const removeKeyword = (keywordToRemove: string) => {
+		setFormData((prev) => ({
+			...prev,
+			keywords: prev.keywords.filter((keyword) => keyword !== keywordToRemove)
+		}))
+	}
+
+	const addTags = () => {
+		const trimmed = newTag.trim()
+		if (trimmed) {
+			const newTags = trimmed
+				.split(',')
+				.map((tag) => tag.trim())
+				.filter((tag) => tag && !formData.tags.includes(tag))
+
+			if (newTags.length > 0) {
+				setFormData((prev) => ({
+					...prev,
+					tags: [...prev.tags, ...newTags]
+				}))
+				setNewTag('')
+			}
+		}
+	}
+
+	const removeTag = (tagToRemove: string) => {
+		setFormData((prev) => ({
+			...prev,
+			tags: prev.tags.filter((tag) => tag !== tagToRemove)
+		}))
+	}
+
+	const handleSubmit = async (e: React.FormEvent) => {
+		e.preventDefault()
+
+		if (!formData.title || !formData.content || !formData.coverImageAlt) {
+			alert('Please fill in all required fields (Title, Content, and Cover Image Alt).')
+			return
+		}
+
+		try {
+			setIsUploading(true)
+
+			const parsedContent = parseContentToJSON(formData.content)
+			console.log(parsedContent)
+			const parsedConclusion = formData.conclusion ? parseContentToJSON(formData.conclusion) : undefined
+
+			const blogPostJSON: BlogPostJSON = {
+				title: formData.title,
+				slug: formData.slug,
+				content: parsedContent,
+				conclusion: parsedConclusion,
+				readTime: formData.readTime || 5,
+				excerpt: formData.excerpt,
+				coverImageUrl: formData.coverImageUrl,
+				BlogType: 'INFIGON',
+				sourceUrl: 'https://www.infigonfutures.com/blogs',
+				keywords: formData.keywords,
+				tags: formData.tags,
+				imageUrls: formData.imageUrls,
+				seoTitle: formData.seoTitle,
+				seoDescription: formData.seoDescription
+			}
+
+			const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/v1/teams/blogs`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				credentials: 'include',
+				body: JSON.stringify(blogPostJSON)
+			})
+
+			if (!response.ok) {
+				const errorData = await response.json().catch(() => ({}))
+				throw new Error(errorData.message || `HTTP error! Status: ${response.status}`)
+			}
+
+			const result = await response.json()
+
+			router.push('/')
+		} catch (error) {
+			console.error('Error creating blog post:', error)
+			const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred'
+			alert(`Error creating blog post: ${errorMessage}`)
+		} finally {
+			setIsUploading(false)
+		}
+	}
+
+	return (
+		<div className='min-h-screen bg-muted/20 py-10'>
+			<div className='container max-w-4xl mx-auto px-4 space-y-6'>
+				<div className='flex items-center gap-4 mb-4'>
+					<Button
+						variant='outline'
+						size='sm'
+						onClick={() => router.push('/')}
+						className='flex items-center gap-2'
+					>
+						<ArrowLeft className='h-4 w-4' />
+						Back
+					</Button>
+					<div className='flex items-center gap-3'>
+						<div className='p-2 bg-primary/10 rounded-lg'>
+							<FileText className='h-6 w-6 text-primary' />
+						</div>
+						<div>
+							<h1 className='text-2xl font-bold'>Create Blog Post</h1>
+							<p className='text-sm text-muted-foreground'>Write something worth reading ✍️</p>
+						</div>
+					</div>
+				</div>
+
+				{isUploading && (
+					<div className='fixed top-4 right-4 bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 z-50'>
+						<Loader2 className='h-4 w-4 animate-spin' />
+						<span>Uploading images...</span>
+					</div>
+				)}
+
+				<form onSubmit={handleSubmit} className='space-y-6'>
+					<Card>
+						<CardHeader>
+							<CardTitle>Basic Info</CardTitle>
+							<CardDescription>Title, excerpt, and source information</CardDescription>
+						</CardHeader>
+						<CardContent className='space-y-4'>
+							<div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+								<div>
+									<Label>Title *</Label>
+									<Input value={formData.title} onChange={(e) => handleTitleChange(e.target.value)} />
+								</div>
+								<div>
+									<Label>Slug</Label>
+									<Input
+										value={formData.slug}
+										onChange={(e) => setFormData((p) => ({ ...p, slug: e.target.value }))}
+									/>
+								</div>
+							</div>
+
+							<div>
+								<Label>Read Time (min)</Label>
+								<Input
+									type='number'
+									value={formData.readTime}
+									min='1'
+									max='1440'
+									onChange={(e) => setFormData((p) => ({ ...p, readTime: +e.target.value }))}
+								/>
+							</div>
+
+							<div>
+								<Label>Excerpt</Label>
+								<Textarea
+									value={formData.excerpt}
+									onChange={(e) => setFormData((p) => ({ ...p, excerpt: e.target.value }))}
+								/>
+							</div>
+						</CardContent>
+					</Card>
+
+					<Card>
+						<CardHeader>
+							<CardTitle>Content</CardTitle>
+							<CardDescription>
+								Write your blog in Markdown. Copy and paste formatted content from any source - it will
+								automatically preserve formatting including bold text, headings, spacing, and line
+								breaks.
+							</CardDescription>
+						</CardHeader>
+						<CardContent className='space-y-4'>
+							<div>
+								<Label>Main Content *</Label>
+								<div className='border rounded-md'>
+									<MDEditor
+										value={formData.content}
+										onChange={(v) => setFormData((p) => ({ ...p, content: v || '' }))}
+										height={400}
+										data-color-mode='light'
+										onPaste={(e) => handlePaste(e, 'content')}
+										textareaProps={{
+											placeholder: `Enter your content here... You can paste formatted content and it will be converted to Markdown automatically.`
+										}}
+									/>
+								</div>
+								<div className='mt-2'>
+									<Label>Upload Content Images</Label>
+									<Input
+										type='file'
+										accept='image/*'
+										multiple
+										onChange={(e) => handleContentImageUpload(e, false)}
+										disabled={isUploading || !formData.slug}
+									/>
+									{!formData.slug && (
+										<p className='text-xs text-muted-foreground mt-1'>
+											Enter a title first to enable image upload
+										</p>
+									)}
+								</div>
+							</div>
+
+							<div>
+								<Label>Conclusion (Optional)</Label>
+								<div className='border rounded-md'>
+									<MDEditor
+										value={formData.conclusion}
+										onChange={(v) => setFormData((p) => ({ ...p, conclusion: v || '' }))}
+										height={400}
+										data-color-mode='light'
+										onPaste={(e) => handlePaste(e, 'conclusion')}
+										textareaProps={{
+											placeholder: `Enter your conclusion here... You can paste formatted conclusion and it will be converted to Markdown automatically.`
+										}}
+									/>
+								</div>
+								<div className='mt-2'>
+									<Label>Upload Conclusion Images</Label>
+									<Input
+										type='file'
+										accept='image/*'
+										multiple
+										onChange={(e) => handleContentImageUpload(e, true)}
+										disabled={isUploading || !formData.slug}
+									/>
+									{!formData.slug && (
+										<p className='text-xs text-muted-foreground mt-1'>
+											Enter a title first to enable image upload
+										</p>
+									)}
+								</div>
+							</div>
+						</CardContent>
+					</Card>
+
+					<Card>
+						<CardHeader>
+							<CardTitle>Cover Image</CardTitle>
+							<CardDescription>Upload a cover image for your blog post</CardDescription>
+						</CardHeader>
+						<CardContent className='space-y-4'>
+							<div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+								<div>
+									<Label>Upload Cover Image</Label>
+									<Input
+										type='file'
+										accept='image/*'
+										onChange={handleImageChange}
+										disabled={isUploading || !formData.slug}
+									/>
+									{!formData.slug && (
+										<p className='text-xs text-muted-foreground mt-1'>
+											Enter a title first to enable image upload
+										</p>
+									)}
+								</div>
+								<div>
+									<Label>Alt Text *</Label>
+									<Input
+										value={formData.coverImageAlt}
+										onChange={(e) =>
+											setFormData((p) => ({
+												...p,
+												coverImageAlt: e.target.value
+											}))
+										}
+									/>
+								</div>
+							</div>
+							{formData.coverImageUrl && (
+								<div className='mt-4'>
+									<Label>Cover Image Preview</Label>
+									<div className='mt-2 border rounded-lg overflow-hidden'>
+										<Image
+											width={100}
+											height={100}
+											src={formData.coverImageUrl}
+											alt={formData.coverImageAlt}
+											className='w-full h-48 object-cover'
+										/>
+									</div>
+								</div>
+							)}
+						</CardContent>
+					</Card>
+
+					<Card>
+						<CardHeader>
+							<CardTitle>SEO & Tags</CardTitle>
+						</CardHeader>
+						<CardContent className='space-y-6'>
+							<div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+								<div>
+									<Label>SEO Title</Label>
+									<Input
+										value={formData.seoTitle}
+										onChange={(e) => setFormData((p) => ({ ...p, seoTitle: e.target.value }))}
+									/>
+								</div>
+								<div>
+									<Label>SEO Description</Label>
+									<Textarea
+										value={formData.seoDescription}
+										onChange={(e) =>
+											setFormData((p) => ({
+												...p,
+												seoDescription: e.target.value
+											}))
+										}
+									/>
+								</div>
+							</div>
+
+							<div>
+								<Label>Keywords</Label>
+								<p className='text-xs text-muted-foreground mb-2'>
+									Enter keywords separated by commas (e.g., react, javascript, web development)
+								</p>
+								<div className='flex gap-2'>
+									<Input
+										value={newKeyword}
+										onChange={(e) => setNewKeyword(e.target.value)}
+										placeholder='Enter keywords separated by commas...'
+										onKeyDown={(e) => {
+											if (e.key === 'Enter') {
+												e.preventDefault()
+												addKeywords()
+											}
+										}}
+									/>
+									<Button type='button' onClick={addKeywords}>
+										<PlusCircle className='w-4 h-4' />
+									</Button>
+								</div>
+								<div className='flex flex-wrap gap-2 mt-2'>
+									{formData.keywords.map((keyword, index) => (
+										<Badge
+											key={`${keyword}-${index}`}
+											variant='secondary'
+											className='flex items-center gap-1'
+										>
+											{keyword}
+											<X
+												className='w-3 h-3 cursor-pointer hover:bg-destructive/20 rounded-full'
+												onClick={() => removeKeyword(keyword)}
+											/>
+										</Badge>
+									))}
+								</div>
+							</div>
+
+							<div>
+								<Label>Tags</Label>
+								<p className='text-xs text-muted-foreground mb-2'>
+									Enter tags separated by commas (e.g., tutorial, beginner, advanced)
+								</p>
+								<div className='flex gap-2'>
+									<Input
+										value={newTag}
+										onChange={(e) => setNewTag(e.target.value)}
+										placeholder='Enter tags separated by commas...'
+										onKeyDown={(e) => {
+											if (e.key === 'Enter') {
+												e.preventDefault()
+												addTags()
+											}
+										}}
+									/>
+									<Button type='button' onClick={addTags}>
+										<PlusCircle className='w-4 h-4' />
+									</Button>
+								</div>
+								<div className='flex flex-wrap gap-2 mt-2'>
+									{formData.tags.map((tag, index) => (
+										<Badge
+											key={`${tag}-${index}`}
+											variant='outline'
+											className='flex items-center gap-1 cursor-pointer'
+											onClick={() => removeTag(tag)}
+										>
+											{tag}
+											<X
+												className='w-3 h-3 cursor-pointer hover:bg-destructive/20 rounded-full'
+												onClick={() => removeTag(tag)}
+											/>
+										</Badge>
+									))}
+								</div>
+							</div>
+						</CardContent>
+					</Card>
+
+					<div className='flex justify-end gap-4'>
+						<Button type='button' variant='outline' onClick={() => router.push('/')} disabled={isUploading}>
+							Cancel
+						</Button>
+						<Button type='submit' className='cursor-pointer' disabled={isUploading}>
+							{isUploading ? (
+								<>
+									<Loader2 className='w-4 h-4 mr-2 animate-spin' />
+									Processing...
+								</>
+							) : (
+								'Create Blog Post'
+							)}
+						</Button>
+					</div>
+				</form>
+			</div>
+		</div>
+	)
 }
 
-    try {
-      setIsUploading(true);
-
-      const parsedContent = parseContentToJSON(formData.content);
-      const parsedConclusion = formData.conclusion
-        ? parseContentToJSON(formData.conclusion)
-        : undefined;
-
-      const blogPostJSON: BlogPostJSON = {
-        title: formData.title,
-        slug: formData.slug,
-        content: parsedContent,
-        conclusion: parsedConclusion,
-        readTime: formData.readTime,
-        excerpt: formData.excerpt,
-        coverImageUrl: formData.coverImageUrl,
-        BlogType: "INFIGON",
-        sourceUrl: "https://www.infigonfutures.com/blogs",
-        keywords: formData.keywords,
-        tags: formData.tags,
-        imageUrls: formData.imageUrls,
-        seoTitle: formData.seoTitle,
-        seoDescription: formData.seoDescription,
-      };
-
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/v1/teams/blogs`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify(blogPostJSON),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.message || `HTTP error! Status: ${response.status}`
-        );
-      }
-
-      const result = await response.json();
-
-      router.push("/");
-    } catch (error) {
-      console.error("Error creating blog post:", error);
-      const errorMessage =
-        error instanceof Error ? error.message : "An unexpected error occurred";
-      alert(`Error creating blog post: ${errorMessage}`);
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-muted/20 py-10">
-      <div className="container max-w-4xl mx-auto px-4 space-y-6">
-        <div className="flex items-center gap-4 mb-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => router.push("/")}
-            className="flex items-center gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </Button>
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <FileText className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold">Create Blog Post</h1>
-              <p className="text-sm text-muted-foreground">
-                Write something worth reading ✍️
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {isUploading && (
-          <div className="fixed top-4 right-4 bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 z-50">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <span>Uploading images...</span>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Basic Info</CardTitle>
-              <CardDescription>
-                Title, excerpt, and source information
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label>Title *</Label>
-                  <Input
-                    value={formData.title}
-                    onChange={(e) => handleTitleChange(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label>Slug</Label>
-                  <Input
-                    value={formData.slug}
-                    onChange={(e) =>
-                      setFormData((p) => ({ ...p, slug: e.target.value }))
-                    }
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label>Read Time (min)</Label>
-                <Input
-                  type="number"
-                  value={formData.readTime}
-                  min="1"
-                  max="1440"
-                  onChange={(e) =>
-                    setFormData((p) => ({ ...p, readTime: +e.target.value }))
-                  }
-                />
-              </div>
-
-              <div>
-                <Label>Excerpt</Label>
-                <Textarea
-                  value={formData.excerpt}
-                  onChange={(e) =>
-                    setFormData((p) => ({ ...p, excerpt: e.target.value }))
-                  }
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Content</CardTitle>
-              <CardDescription>
-                Write your blog in Markdown. Copy and paste formatted content
-                from any source - it will automatically preserve formatting
-                including bold text, headings, spacing, and line breaks.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label>Main Content *</Label>
-                <div className="border rounded-md">
-                  <MDEditor
-                    value={formData.content}
-                    onChange={(v) =>
-                      setFormData((p) => ({ ...p, content: v || "" }))
-                    }
-                    height={400}
-                    data-color-mode="light"
-                    onPaste={(e) => handlePaste(e, "content")}
-                    textareaProps={{
-                      placeholder: `Enter your content here... You can paste formatted content and it will be converted to Markdown automatically.`,
-                    }}
-                  />
-                </div>
-                <div className="mt-2">
-                  <Label>Upload Content Images</Label>
-                  <Input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={(e) => handleContentImageUpload(e, false)}
-                    disabled={isUploading || !formData.slug}
-                  />
-                  {!formData.slug && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Enter a title first to enable image upload
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <Label>Conclusion (Optional)</Label>
-                <div className="border rounded-md">
-                  <MDEditor
-                    value={formData.conclusion}
-                    onChange={(v) =>
-                      setFormData((p) => ({ ...p, conclusion: v || "" }))
-                    }
-                    height={400}
-                    data-color-mode="light"
-                    onPaste={(e) => handlePaste(e, "conclusion")}
-                    textareaProps={{
-                      placeholder: `Enter your conclusion here... You can paste formatted conclusion and it will be converted to Markdown automatically.`,
-                    }}
-                  />
-                </div>
-                <div className="mt-2">
-                  <Label>Upload Conclusion Images</Label>
-                  <Input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={(e) => handleContentImageUpload(e, true)}
-                    disabled={isUploading || !formData.slug}
-                  />
-                  {!formData.slug && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Enter a title first to enable image upload
-                    </p>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Cover Image</CardTitle>
-              <CardDescription>
-                Upload a cover image for your blog post
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label>Upload Cover Image</Label>
-                  <Input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageChange}
-                    disabled={isUploading || !formData.slug}
-                  />
-                  {!formData.slug && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Enter a title first to enable image upload
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <Label>Alt Text *</Label>
-                  <Input
-                    value={formData.coverImageAlt}
-                    onChange={(e) =>
-                      setFormData((p) => ({
-                        ...p,
-                        coverImageAlt: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-              </div>
-              {formData.coverImageUrl && (
-                <div className="mt-4">
-                  <Label>Cover Image Preview</Label>
-                  <div className="mt-2 border rounded-lg overflow-hidden">
-                    <Image
-                      width={100}
-                      height={100}
-                      src={formData.coverImageUrl}
-                      alt={formData.coverImageAlt}
-                      className="w-full h-48 object-cover"
-                    />
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>SEO & Tags</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label>SEO Title</Label>
-                  <Input
-                    value={formData.seoTitle}
-                    onChange={(e) =>
-                      setFormData((p) => ({ ...p, seoTitle: e.target.value }))
-                    }
-                  />
-                </div>
-                <div>
-                  <Label>SEO Description</Label>
-                  <Textarea
-                    value={formData.seoDescription}
-                    onChange={(e) =>
-                      setFormData((p) => ({
-                        ...p,
-                        seoDescription: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label>Keywords</Label>
-                <p className="text-xs text-muted-foreground mb-2">
-                  Enter keywords separated by commas (e.g., react, javascript,
-                  web development)
-                </p>
-                <div className="flex gap-2">
-                  <Input
-                    value={newKeyword}
-                    onChange={(e) => setNewKeyword(e.target.value)}
-                    placeholder="Enter keywords separated by commas..."
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        addKeywords();
-                      }
-                    }}
-                  />
-                  <Button type="button" onClick={addKeywords}>
-                    <PlusCircle className="w-4 h-4" />
-                  </Button>
-                </div>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {formData.keywords.map((keyword, index) => (
-                    <Badge
-                      key={`${keyword}-${index}`}
-                      variant="secondary"
-                      className="flex items-center gap-1"
-                    >
-                      {keyword}
-                      <X
-                        className="w-3 h-3 cursor-pointer hover:bg-destructive/20 rounded-full"
-                        onClick={() => removeKeyword(keyword)}
-                      />
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <Label>Tags</Label>
-                <p className="text-xs text-muted-foreground mb-2">
-                  Enter tags separated by commas (e.g., tutorial, beginner,
-                  advanced)
-                </p>
-                <div className="flex gap-2">
-                  <Input
-                    value={newTag}
-                    onChange={(e) => setNewTag(e.target.value)}
-                    placeholder="Enter tags separated by commas..."
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        addTags();
-                      }
-                    }}
-                  />
-                  <Button type="button" onClick={addTags}>
-                    <PlusCircle className="w-4 h-4" />
-                  </Button>
-                </div>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {formData.tags.map((tag, index) => (
-                    <Badge
-                      key={`${tag}-${index}`}
-                      variant="outline"
-                      className="flex items-center gap-1 cursor-pointer"
-                      onClick={() => removeTag(tag)}
-                    >
-                      {tag}
-                      <X
-                        className="w-3 h-3 cursor-pointer hover:bg-destructive/20 rounded-full"
-                        onClick={() => removeTag(tag)}
-                      />
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="flex justify-end gap-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => router.push("/")}
-              disabled={isUploading}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              className="cursor-pointer"
-              disabled={isUploading}
-            >
-              {isUploading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                "Create Blog Post"
-              )}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
-export default CreateBlog;
+export default CreateBlog
